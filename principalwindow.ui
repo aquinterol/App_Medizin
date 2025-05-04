@@ -1,0 +1,235 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<ui version="4.0">
+ <class>Widget</class>
+ <widget class="QWidget" name="Widget">
+  <property name="geometry">
+   <rect>
+    <x>0</x>
+    <y>0</y>
+    <width>1601</width>
+    <height>913</height>
+   </rect>
+  </property>
+  <property name="sizePolicy">
+   <sizepolicy hsizetype="Expanding" vsizetype="Expanding">
+    <horstretch>0</horstretch>
+    <verstretch>0</verstretch>
+   </sizepolicy>
+  </property>
+  <property name="windowTitle">
+   <string>3D File Visualizer &amp; Modeling Tool (Medizin Technick)</string>
+  </property>
+  <property name="styleSheet">
+   <string notr="true">QWidget {
+    background-color: rgb(222, 222, 222)
+     
+	border-color: qlineargradient(spread:pad, x1:0, y1:0, x2:0, y2:1, stop:0 rgba(0, 0, 0, 255), stop:0.33 rgba(0, 0, 0, 255), stop:0.34 rgba(255, 30, 30, 255), stop:0.66 rgba(255, 0, 0, 255), stop:0.67 rgba(255, 255, 0, 255), stop:1 rgba(255, 255, 0, 255));
+}</string>
+  </property>
+  <widget class="QWidget" name="gridLayoutWidget">
+   <property name="geometry">
+    <rect>
+     <x>850</x>
+     <y>80</y>
+     <width>681</width>
+     <height>691</height>
+    </rect>
+   </property>
+   <layout class="QGridLayout" name="viLayout"/>
+  </widget>
+  <widget class="QComboBox" name="comboBox">
+   <property name="geometry">
+    <rect>
+     <x>980</x>
+     <y>20</y>
+     <width>459</width>
+     <height>29</height>
+    </rect>
+   </property>
+   <property name="sizePolicy">
+    <sizepolicy hsizetype="Expanding" vsizetype="Expanding">
+     <horstretch>0</horstretch>
+     <verstretch>0</verstretch>
+    </sizepolicy>
+   </property>
+   <property name="currentText">
+    <string/>
+   </property>
+   <property name="currentIndex">
+    <number>-1</number>
+   </property>
+   <property name="maxVisibleItems">
+    <number>2</number>
+   </property>
+   <item>
+    <property name="text">
+     <string>Isosurface</string>
+    </property>
+   </item>
+   <item>
+    <property name="text">
+     <string>Volume rendering</string>
+    </property>
+   </item>
+  </widget>
+  <widget class="QWidget" name="verticalLayoutWidget">
+   <property name="geometry">
+    <rect>
+     <x>20</x>
+     <y>20</y>
+     <width>491</width>
+     <height>31</height>
+    </rect>
+   </property>
+   <layout class="QVBoxLayout" name="verticalLayout_2">
+    <item>
+     <widget class="QLabel" name="fileText">
+      <property name="text">
+       <string>Please select a file</string>
+      </property>
+     </widget>
+    </item>
+   </layout>
+  </widget>
+  <widget class="QPushButton" name="openFile">
+   <property name="geometry">
+    <rect>
+     <x>670</x>
+     <y>20</y>
+     <width>80</width>
+     <height>29</height>
+    </rect>
+   </property>
+   <property name="sizePolicy">
+    <sizepolicy hsizetype="Preferred" vsizetype="Minimum">
+     <horstretch>0</horstretch>
+     <verstretch>0</verstretch>
+    </sizepolicy>
+   </property>
+   <property name="styleSheet">
+    <string notr="true">QPushButton {
+    background-color: rgb(0, 0, 77);
+    color: white;
+}</string>
+   </property>
+   <property name="text">
+    <string>Open File</string>
+   </property>
+   <property name="autoExclusive">
+    <bool>false</bool>
+   </property>
+  </widget>
+  <widget class="QWidget" name="gridLayoutWidget_2">
+   <property name="geometry">
+    <rect>
+     <x>40</x>
+     <y>240</y>
+     <width>721</width>
+     <height>591</height>
+    </rect>
+   </property>
+   <layout class="QGridLayout" name="gridLayout">
+    <item row="0" column="1">
+     <widget class="QTabWidget" name="tabWidget">
+      <property name="currentIndex">
+       <number>0</number>
+      </property>
+      <widget class="QWidget" name="visxy">
+       <attribute name="title">
+        <string>Axis xy</string>
+       </attribute>
+      </widget>
+      <widget class="QWidget" name="viszy">
+       <attribute name="title">
+        <string>Axis yz</string>
+       </attribute>
+      </widget>
+      <widget class="QWidget" name="visxz">
+       <attribute name="title">
+        <string>Axis xz</string>
+       </attribute>
+      </widget>
+     </widget>
+    </item>
+   </layout>
+  </widget>
+  <widget class="QPushButton" name="scatter">
+   <property name="geometry">
+    <rect>
+     <x>1100</x>
+     <y>810</y>
+     <width>201</width>
+     <height>41</height>
+    </rect>
+   </property>
+   <property name="styleSheet">
+    <string notr="true">QPushButton {
+    background-color: rgb(0, 0, 77);
+    color: white;
+}</string>
+   </property>
+   <property name="text">
+    <string>Scatterer positions</string>
+   </property>
+  </widget>
+  <widget class="QTextBrowser" name="textInfo">
+   <property name="geometry">
+    <rect>
+     <x>20</x>
+     <y>70</y>
+     <width>741</width>
+     <height>151</height>
+    </rect>
+   </property>
+  </widget>
+  <widget class="QSlider" name="horizontalSlider">
+   <property name="geometry">
+    <rect>
+     <x>450</x>
+     <y>850</y>
+     <width>160</width>
+     <height>18</height>
+    </rect>
+   </property>
+   <property name="orientation">
+    <enum>Qt::Orientation::Horizontal</enum>
+   </property>
+  </widget>
+  <widget class="QLabel" name="label">
+   <property name="geometry">
+    <rect>
+     <x>350</x>
+     <y>870</y>
+     <width>391</width>
+     <height>20</height>
+    </rect>
+   </property>
+   <property name="text">
+    <string>Position : </string>
+   </property>
+  </widget>
+  <widget class="QComboBox" name="comboBox_2">
+   <property name="geometry">
+    <rect>
+     <x>40</x>
+     <y>850</y>
+     <width>221</width>
+     <height>28</height>
+    </rect>
+   </property>
+   <item>
+    <property name="text">
+     <string>Milimeters</string>
+    </property>
+   </item>
+   <item>
+    <property name="text">
+     <string>Wavelength </string>
+    </property>
+   </item>
+  </widget>
+ </widget>
+ <resources/>
+ <connections/>
+</ui>
+
