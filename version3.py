@@ -937,10 +937,11 @@ class ScatterDialog(QDialog):
             y_coords = self.y.flatten() if self.y is not None else np.arange(self.data.shape[1])
             z_coords = self.z.flatten() if self.z is not None else np.arange(self.data.shape[2])
             
-            # Encontrar picos en cada perfil
-            peaks_x, _ = find_peaks(x_profile, prominence=0.1)  # Ajustar el parámetro prominence según sea necesario
-            peaks_y, _ = find_peaks(y_profile, height=None, threshold=0.0001, distance=5)
-            peaks_z, _ = find_peaks(z_profile, prominence=0.1)
+            # Encontrar picos en cada perfil con parámetros ajustados para detectar menos picos
+            # Aumentar los valores de prominence y distance para reducir el número de picos detectados
+            peaks_x, _ = find_peaks(x_profile, prominence=0.3, distance=10)  # Valores ajustados
+            peaks_y, _ = find_peaks(y_profile, prominence=0.3, distance=10)  # Cambiado de threshold a prominence
+            peaks_z, _ = find_peaks(z_profile, prominence=0.3, distance=10)  # Valores ajustados
             
             print(f"Found {len(peaks_x)} peaks in X profile")
             print(f"Found {len(peaks_y)} peaks in Y profile")
@@ -954,7 +955,7 @@ class ScatterDialog(QDialog):
             valid_x_peaks = [p for p in peaks_x if p < len(x_coords)]
             if valid_x_peaks:
                 ax_x.scatter([x_coords[p] for p in valid_x_peaks], [x_profile[p] for p in valid_x_peaks], 
-                            color='r', marker='x', s=50, picker=5)
+                            color='r', marker='x', s=50, picker=True, pickradius=5)
                 
             ax_x.set_title(f'X Profile with Peaks (Y={mid_y}, Z={mid_z})')
             ax_x.set_xlabel('X')
@@ -968,7 +969,7 @@ class ScatterDialog(QDialog):
             valid_y_peaks = [p for p in peaks_y if p < len(y_coords)]
             if valid_y_peaks:
                 ax_y.scatter([y_coords[p] for p in valid_y_peaks], [y_profile[p] for p in valid_y_peaks], 
-                            color='r', marker='x', s=50, picker=5)
+                            color='r', marker='x', s=50, picker=True, pickradius=5)
                 
             ax_y.set_title(f'Y Profile with Peaks (X={mid_x}, Z={mid_z})')
             ax_y.set_xlabel('Y')
@@ -982,16 +983,21 @@ class ScatterDialog(QDialog):
             valid_z_peaks = [p for p in peaks_z if p < len(z_coords)]
             if valid_z_peaks:
                 ax_z.scatter([z_coords[p] for p in valid_z_peaks], [z_profile[p] for p in valid_z_peaks], 
-                            color='r', marker='x', s=50, picker=5)
+                            color='r', marker='x', s=50, picker=True, pickradius=5)
                 
             ax_z.set_title(f'Z Profile with Peaks (X={mid_x}, Y={mid_y})')
             ax_z.set_xlabel('Z')
             ax_z.set_ylabel('Amplitude')
             
             # Conectar eventos de picker para mostrar valores al hacer clic
-            self.canvas_x.mpl_connect('pick_event', lambda event: self._on_pick(event, x_coords, x_profile, 'X'))
-            self.canvas_y.mpl_connect('pick_event', lambda event: self._on_pick(event, y_coords, y_profile, 'Y'))
-            self.canvas_z.mpl_connect('pick_event', lambda event: self._on_pick(event, z_coords, z_profile, 'Z'))
+            # Almacenar los datos de cada gráfico para usar en los callbacks
+            self.peak_data_x = (x_coords, x_profile, valid_x_peaks, 'X')
+            self.peak_data_y = (y_coords, y_profile, valid_y_peaks, 'Y')
+            self.peak_data_z = (z_coords, z_profile, valid_z_peaks, 'Z')
+
+            self.canvas_x.mpl_connect('pick_event', self._on_pick_x)
+            self.canvas_y.mpl_connect('pick_event', self._on_pick_y)
+            self.canvas_z.mpl_connect('pick_event', self._on_pick_z)
             
             # Conectar eventos de zoom
             self.figure_x.canvas.mpl_connect('scroll_event', lambda event: self._zoom_factory(event, ax_x))
@@ -1008,33 +1014,64 @@ class ScatterDialog(QDialog):
             import traceback
             traceback.print_exc()  # Print the full traceback for debugging
 
-    def _on_pick(self, event, coords, profile, axis_name):
-        """Callback para manejar eventos de clic en los picos"""
+    def _on_pick_x(self, event):
+        """Handler específico para picos en el eje X"""
+        coords, profile, valid_peaks, axis_name = self.peak_data_x
+        self._find_closest_peak(event, coords, profile, valid_peaks, axis_name)
+
+    def _on_pick_y(self, event):
+        """Handler específico para picos en el eje Y"""
+        coords, profile, valid_peaks, axis_name = self.peak_data_y
+        self._find_closest_peak(event, coords, profile, valid_peaks, axis_name)
+
+    def _on_pick_z(self, event):
+        """Handler específico para picos en el eje Z"""
+        coords, profile, valid_peaks, axis_name = self.peak_data_z
+        self._find_closest_peak(event, coords, profile, valid_peaks, axis_name)
+
+    def _find_closest_peak(self, event, coords, profile, valid_peaks, axis_name):
+        """Encuentra el pico más cercano al punto donde se hizo clic"""
         try:
-            # Obtener el índice del punto seleccionado
-            ind = event.ind
-            if len(ind) == 0:
+            # Obtener la posición del clic en coordenadas de datos
+            mouse_x, mouse_y = event.mouseevent.xdata, event.mouseevent.ydata
+            if mouse_x is None or mouse_y is None:
                 return
             
-            # Si hay múltiples puntos, tomar el primero
-            point_index = ind[0]
+            # Si no hay picos válidos, salir
+            if not valid_peaks:
+                return
             
-            # Obtener las coordenadas y el valor de amplitud para el índice seleccionado
-            if point_index < len(coords) and point_index < len(profile):
-                coord_value = coords[point_index]
-                amplitude_value = profile[point_index]
+            # Encontrar el pico más cercano al punto donde se hizo clic
+            closest_peak = None
+            min_distance = float('inf')
+            
+            for peak_idx in valid_peaks:
+                peak_x = coords[peak_idx]
+                peak_y = profile[peak_idx]
+                
+                # Calcular distancia euclidiana entre el clic y el pico
+                distance = ((peak_x - mouse_x) ** 2 + (peak_y - mouse_y) ** 2) ** 0.5
+                
+                if distance < min_distance:
+                    min_distance = distance
+                    closest_peak = peak_idx
+            
+            if closest_peak is not None:
+                # Obtener información del pico más cercano
+                coord_value = coords[closest_peak]
+                amplitude_value = profile[closest_peak]
                 
                 # Obtener las coordenadas físicas para este punto
                 physical_info = ""
                 
                 if axis_name == 'X' and self.x is not None:
-                    physical_info = f"Physical X: {coord_value:.6f}\nArray index: {point_index}"
+                    physical_info = f"Physical X: {coord_value:.6f}"
                 elif axis_name == 'Y' and self.y is not None:
-                    physical_info = f"Physical Y: {coord_value:.6f}\nArray index: {point_index}"
+                    physical_info = f"Physical Y: {coord_value:.6f}"
                 elif axis_name == 'Z' and self.z is not None:
-                    physical_info = f"Physical Z: {coord_value:.6f}\nArray index: {point_index}"
+                    physical_info = f"Physical Z: {coord_value:.6f}"
                 else:
-                    physical_info = f"Array index: {point_index}"
+                    physical_info = f"Array index: {closest_peak}"
                 
                 # Mostrar la información en un diálogo
                 QMessageBox.information(
@@ -1042,14 +1079,11 @@ class ScatterDialog(QDialog):
                     f"{axis_name} Peak Information",
                     f"{physical_info}\nAmplitude: {amplitude_value:.6f}"
                 )
-            else:
-                QMessageBox.warning(
-                    self,
-                    "Error",
-                    f"Invalid index {point_index}. Coords length: {len(coords)}, Profile length: {len(profile)}"
-                )
+            
         except Exception as e:
             QMessageBox.warning(self, "Error", f"Error displaying peak information: {str(e)}")
+            import traceback
+            traceback.print_exc()  # Print the full error for debugging
 
     def _zoom_factory(self, event, ax):
         """Función para manejar el zoom con la rueda del ratón"""

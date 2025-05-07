@@ -11,8 +11,9 @@ from ui_sw import Ui_Dialog
 from PyQt5.QtCore import Qt 
 import scipy.io
 import numpy as np
-import matplotlib.pyplot as plt
+import matplotlib.pyplot as plt #matlab pyplot for interactive 
 from matplotlib.backends.backend_qt5agg import FigureCanvasQTAgg as FigureCanvas
+from matplotlib.backends.backend_qt5agg import NavigationToolbar2QT as NavigationToolbar
 from matplotlib.figure import Figure
 from scipy.signal import find_peaks
 
@@ -579,10 +580,15 @@ class ScatterDialog(QDialog):
         self.y = y
         self.z = z
 
-        #almacenar la data general para el grafico de la amplitud
+        # Almacenar la data general para el grafico de la amplitud
         self.data = data 
         self.mi_lineedit = self.ui.InputIndex
         self.valor_guardado = 0 
+
+        # Variables para el pan (arrastrar) de gráficos
+        self._pan_active = False
+        self._pan_start = None
+        self._current_ax = None
 
         # Configurar estado inicial de los controles
         self.ui.combbsimu.setEnabled(False)
@@ -594,6 +600,8 @@ class ScatterDialog(QDialog):
         # Conectar el signal de cambio de selección
         self.ui.combbprincipal.currentIndexChanged.connect(self.on_combobox_changed)
         self.ui.InputIndex.textChanged.connect(self.on_input_index_changed)
+        self.ui.InputIndey.textChanged.connect(self.on_input_index_changed)
+        self.ui.InputIndez.textChanged.connect(self.on_input_index_changed)
 
         # Connect the Graph button click to the update_manual_graphs function
         self.ui.buttonGraph.clicked.connect(self.update_manual_graphs)
@@ -626,12 +634,17 @@ class ScatterDialog(QDialog):
     def on_input_index_changed(self):
         """Actualiza el valor cuando el usuario cambia el texto en InputIndex."""
         try:
-            self.valor_guardado = int(self.ui.InputIndex.text().strip())  # Convierte a entero
-            print(f"Nuevo valor guardado: {self.valor_guardado}")  # Debug
+            self.valor_guardado_x = int(self.ui.InputIndex.text().strip())  # Convierte a entero
+            print(f"Nuevo valor guardado: {self.valor_guardado_x}")  # Debug
+            self.valor_guardado_y = int(self.ui.InputIndey.text().strip())  # Convierte a entero
+            print(f"Nuevo valor guardado: {self.valor_guardado_y}")  # Debug
+            self.valor_guardado_z = int(self.ui.InputIndez.text().strip())  # Convierte a entero
+            print(f"Nuevo valor guardado: {self.valor_guardado_z}")  # Debug
         except ValueError:
-            self.valor_guardado = 0  # Si hay error, poner un valor predeterminado
+            self.valor_guardado_x = 0  # Si hay error, poner un valor predeterminado
+            self.valor_guardado_y = 0  # Si hay error, poner un valor predeterminado
+            self.valor_guardado_z = 0  # Si hay error, poner un valor predeterminado
             
-
     def setup_matplotlib_canvases(self):
         """Configurar lienzos de Matplotlib para X, Y, Z"""
         # Para el frame X
@@ -652,11 +665,10 @@ class ScatterDialog(QDialog):
         layout_z = QVBoxLayout(self.ui.FrameZ)
         layout_z.addWidget(self.canvas_z)   
 
-            # Habilitar interactividad
+        # Habilitar interactividad
         self.figure_x.set_tight_layout(True)
         self.figure_y.set_tight_layout(True)
         self.figure_z.set_tight_layout(True)
-        
 
     def on_combobox_changed(self, index):
         # Obtener el texto seleccionado
@@ -670,6 +682,8 @@ class ScatterDialog(QDialog):
         # Deshabilitar todos los controles primero
         self.ui.combbsimu.setEnabled(False)
         self.ui.InputIndex.setEnabled(False)
+        self.ui.InputIndey.setEnabled(False)
+        self.ui.InputIndez.setEnabled(False)
 
         # Habilitar controles basados en la selección
         if choice == "Simulation peaks ":
@@ -702,14 +716,41 @@ class ScatterDialog(QDialog):
                     self.figure_y.clear()
                     self.figure_z.clear()
 
-                    # Gráfico de perfil X
+                # Gráfico de perfil X
+                    if not hasattr(self, 'figure_x') or self.figure_x is None:
+                        # Crear figura y canvas
+                        self.figure_x = Figure(figsize=(5, 4), dpi=100)
+                        self.canvas_x = FigureCanvas(self.figure_x)
+
+                        # Crear toolbar solo una vez
+                        if not hasattr(self, 'toolbar_x') or self.toolbar_x is None:
+                            self.toolbar_x = NavigationToolbar(self.canvas_x, self.ui.FrameX)
+
+                            # Configurar layout en FrameX
+                            self.layout_x = QVBoxLayout(self.ui.FrameX)
+                            self.layout_x.setContentsMargins(0, 0, 0, 0)  # Opcional: para que ocupe todo el espacio
+                            self.layout_x.addWidget(self.toolbar_x)  # Aquí agregamos el toolbar
+                            self.layout_x.addWidget(self.canvas_x)
+
+                            self.ui.FrameX.setLayout(self.layout_x)
+                        else:
+                            # Si ya existe un toolbar, no lo volvemos a crear
+                            self.layout_x.addWidget(self.toolbar_x)
+
+                    else:
+                        # Limpiar el gráfico anterior
+                        self.figure_x.clf()
+
+                    # Crear nuevo gráfico
                     ax_x = self.figure_x.add_subplot(111)
                     ax_x.plot(self.x.flatten(), x_profile)
                     ax_x.set_title('X Profile')
                     ax_x.set_xlabel('X')
                     ax_x.set_ylabel('Amplitude')
-                    ax_x.figure.canvas.mpl_connect('scroll_event', lambda event: self._zoom_factory(event, ax_x))
+
+                    # Redibujar canvas
                     self.canvas_x.draw()
+
 
                     # Gráfico de perfil Y
                     ax_y = self.figure_y.add_subplot(111)
@@ -717,7 +758,6 @@ class ScatterDialog(QDialog):
                     ax_y.set_title('Y Profile')
                     ax_y.set_xlabel('Y')
                     ax_y.set_ylabel('Amplitude')
-                    ax_y.figure.canvas.mpl_connect('scroll_event', lambda event: self._zoom_factory(event, ax_y))
                     self.canvas_y.draw()
 
                     # Gráfico de perfil Z
@@ -745,25 +785,35 @@ class ScatterDialog(QDialog):
 
         elif choice == "Manual input ":
             self.ui.InputIndex.setEnabled(True)
+            self.ui.InputIndey.setEnabled(True)
+            self.ui.InputIndez.setEnabled(True)
     
             try:
                 # Intentar convertir el texto actual a un entero
-                current_text = self.ui.InputIndex.text().strip()
-                self.valor_guardado = int(current_text) if current_text else 0
-                print(f"Valor guardado en manual input: {self.valor_guardado}")
+                current_text_x = self.ui.InputIndex.text().strip()
+                self.valor_guardado_x = int(current_text_x) if current_text_x else 0
+                print(f"Valor guardado en manual input: {self.valor_guardado_x}")
+                current_text_y = self.ui.InputIndey.text().strip()
+                self.valor_guardado_y = int(current_text_y) if current_text_y else 0
+                print(f"Valor guardado en manual input: {self.valor_guardado_y}")
+                current_text_z = self.ui.InputIndez.text().strip()
+                self.valor_guardado_z = int(current_text_z) if current_text_z else 0
+                print(f"Valor guardado en manual input: {self.valor_guardado_z}")
             except ValueError:
                 # Si la conversión falla, establecer un valor predeterminado
-                self.valor_guardado = 0
+                self.valor_guardado_x = 0
+                self.valor_guardado_y = 0
+                self.valor_guardado_z = 0
                 self.ui.InputIndex.setText('0')
+                self.ui.InputIndey.setText('0')
+                self.ui.InputIndez.setText('0')
             
             # Call the update_manual_graphs method to display initial graphs
             if hasattr(self, 'xs_pixels'):
                 self.update_manual_graphs()
         
-
         elif choice == "Find peaks ":
             self.find_peaks_graph()
-
 
     def update_manual_graphs(self):
         """Update graphs based on the current manual input value"""
@@ -777,18 +827,17 @@ class ScatterDialog(QDialog):
             self.ys_pixels = np.interp(self.ys, (self.y.min(), self.y.max()), (0, self.y.shape[0] - 1)).round().astype(int)
             self.zs_pixels = np.interp(self.zs, (self.z.min(), self.z.max()), (0, self.z.shape[0] - 1)).round().astype(int)
 
-
         try:
             # Obtener el valor del índice ingresado por el usuario
-            index = self.valor_guardado
+            index_x = self.valor_guardado_x
+            index_y = self.valor_guardado_y
+            index_z = self.valor_guardado_z
             
-#Valores x,y,z 
-
             # Verificar que el índice esté dentro de los límites de la matriz
-            if self.data is not None and 0 <= index < min(self.data.shape):
-                x_index = min(index, self.data.shape[0]-1)
-                y_index = min(index, self.data.shape[1]-1)
-                z_index = min(index, self.data.shape[2]-1)
+            if self.data is not None and 0 <= index_x < min(self.data.shape) and 0 <= index_y < min(self.data.shape) and 0 <= index_z < min(self.data.shape):
+                x_index = min(index_x, self.data.shape[0]-1)
+                y_index = min(index_y, self.data.shape[1]-1)
+                z_index = min(index_z, self.data.shape[2]-1)
                 
                 # Extraer perfiles de datos
                 x_profile = self.data[:, y_index, z_index]  # Perfil a lo largo del eje X
@@ -832,7 +881,7 @@ class ScatterDialog(QDialog):
                 ax_z.figure.canvas.mpl_connect('scroll_event', lambda event: self._zoom_factory(event, ax_z))
                 self.canvas_z.draw()
             else:
-                QMessageBox.warning(self, "Error", f"Index {index} is out of range")
+                QMessageBox.warning(self, "Error", f"One of the index is out of range")
 
         except Exception as e:
             QMessageBox.warning(self, "Error", f"Error generating profiles: {str(e)}")
@@ -867,8 +916,6 @@ class ScatterDialog(QDialog):
             peaks_x, _ = find_peaks(x_profile, prominence=0.1)  # Ajustar el parámetro prominence según sea necesario
             peaks_y, _ = find_peaks(y_profile, height=None, threshold=0.0001, distance=5)
             peaks_z, _ = find_peaks(z_profile, prominence=0.1)
-
-            #Coordenadas del punto / Zoom en el valor (manual o con direccion)
             
             print(f"Found {len(peaks_x)} peaks in X profile")
             print(f"Found {len(peaks_y)} peaks in Y profile")
@@ -877,37 +924,54 @@ class ScatterDialog(QDialog):
             # Graficar perfil X con picos
             ax_x = self.figure_x.add_subplot(111)
             ax_x.plot(x_coords, x_profile)
-            ax_x.scatter(x_coords[peaks_x], x_profile[peaks_x], color='r',  marker='x', s=50, picker=5 )
+            
+            # Asegurar que los picos tienen las mismas dimensiones que las coordenadas
+            valid_x_peaks = [p for p in peaks_x if p < len(x_coords)]
+            if valid_x_peaks:
+                ax_x.scatter([x_coords[p] for p in valid_x_peaks], [x_profile[p] for p in valid_x_peaks], 
+                            color='r', marker='x', s=50, picker=5)
+                
             ax_x.set_title(f'X Profile with Peaks (Y={mid_y}, Z={mid_z})')
             ax_x.set_xlabel('X')
             ax_x.set_ylabel('Amplitude')
-            # Habilitar zoom y pan
-            ax_x.figure.canvas.mpl_connect('scroll_event', lambda event: self._zoom_factory(event, ax_x))
             
             # Graficar perfil Y con picos
             ax_y = self.figure_y.add_subplot(111)
             ax_y.plot(y_coords, y_profile)
-            ax_y.scatter(y_coords[peaks_y], y_profile[peaks_y],color='r', marker='x', s=50, picker=5)
+            
+            # Asegurar que los picos tienen las mismas dimensiones que las coordenadas
+            valid_y_peaks = [p for p in peaks_y if p < len(y_coords)]
+            if valid_y_peaks:
+                ax_y.scatter([y_coords[p] for p in valid_y_peaks], [y_profile[p] for p in valid_y_peaks], 
+                            color='r', marker='x', s=50, picker=5)
+                
             ax_y.set_title(f'Y Profile with Peaks (X={mid_x}, Z={mid_z})')
             ax_y.set_xlabel('Y')
             ax_y.set_ylabel('Amplitude')
-            # Habilitar zoom y pan
-            ax_y.figure.canvas.mpl_connect('scroll_event', lambda event: self._zoom_factory(event, ax_y))
             
             # Graficar perfil Z con picos
             ax_z = self.figure_z.add_subplot(111)
             ax_z.plot(z_coords, z_profile)
-            ax_z.scatter(z_coords[peaks_z], z_profile[peaks_z], color='r', marker='x', s=50, picker=5)
+            
+            # Asegurar que los picos tienen las mismas dimensiones que las coordenadas
+            valid_z_peaks = [p for p in peaks_z if p < len(z_coords)]
+            if valid_z_peaks:
+                ax_z.scatter([z_coords[p] for p in valid_z_peaks], [z_profile[p] for p in valid_z_peaks], 
+                            color='r', marker='x', s=50, picker=5)
+                
             ax_z.set_title(f'Z Profile with Peaks (X={mid_x}, Y={mid_y})')
             ax_z.set_xlabel('Z')
             ax_z.set_ylabel('Amplitude')
-            # Habilitar zoom y pan
-            ax_z.figure.canvas.mpl_connect('scroll_event', lambda event: self._zoom_factory(event, ax_z))
-
-             # Conectar eventos de picker para mostrar valores al hacer clic
+            
+            # Conectar eventos de picker para mostrar valores al hacer clic
             self.canvas_x.mpl_connect('pick_event', lambda event: self._on_pick(event, x_coords, x_profile, 'X'))
             self.canvas_y.mpl_connect('pick_event', lambda event: self._on_pick(event, y_coords, y_profile, 'Y'))
             self.canvas_z.mpl_connect('pick_event', lambda event: self._on_pick(event, z_coords, z_profile, 'Z'))
+            
+            # Conectar eventos de zoom
+            self.figure_x.canvas.mpl_connect('scroll_event', lambda event: self._zoom_factory(event, ax_x))
+            self.figure_y.canvas.mpl_connect('scroll_event', lambda event: self._zoom_factory(event, ax_y))
+            self.figure_z.canvas.mpl_connect('scroll_event', lambda event: self._zoom_factory(event, ax_z))
             
             # Redibuja los canvases
             self.canvas_x.draw()
@@ -921,54 +985,48 @@ class ScatterDialog(QDialog):
 
     def _on_pick(self, event, coords, profile, axis_name):
         """Callback para manejar eventos de clic en los picos"""
-        ind = event.ind[0]  # Obtener el índice del punto clickeado
-        c_val = coords[ind]  # Coordenada del punto
-        a_val = profile[ind]  # Valor de amplitud del punto
-        
-        # Mostrar un messagebox con la información del punto
-        QMessageBox.information(self, f"{axis_name} Peak Info", 
-                            f"Position: {c_val:.6f}\nAmplitude: {a_val:.6f}")
-        
+        try:
+            # Obtener el índice del punto seleccionado
+            ind = event.ind
+            if len(ind) == 0:
+                return
+            
+            # Si hay múltiples puntos, tomar el primero
+            point_index = ind[0]
+            
+            # Obtener las coordenadas y el valor de amplitud para el índice seleccionado
+            if point_index < len(coords) and point_index < len(profile):
+                coord_value = coords[point_index]
+                amplitude_value = profile[point_index]
+                
+                # Obtener las coordenadas físicas para este punto
+                physical_info = ""
+                
+                if axis_name == 'X' and self.x is not None:
+                    physical_info = f"Physical X: {coord_value:.6f}\nArray index: {point_index}"
+                elif axis_name == 'Y' and self.y is not None:
+                    physical_info = f"Physical Y: {coord_value:.6f}\nArray index: {point_index}"
+                elif axis_name == 'Z' and self.z is not None:
+                    physical_info = f"Physical Z: {coord_value:.6f}\nArray index: {point_index}"
+                else:
+                    physical_info = f"Array index: {point_index}"
+                
+                # Mostrar la información en un diálogo
+                QMessageBox.information(
+                    self, 
+                    f"{axis_name} Peak Information",
+                    f"{physical_info}\nAmplitude: {amplitude_value:.6f}"
+                )
+            else:
+                QMessageBox.warning(
+                    self,
+                    "Error",
+                    f"Invalid index {point_index}. Coords length: {len(coords)}, Profile length: {len(profile)}"
+                )
+        except Exception as e:
+            QMessageBox.warning(self, "Error", f"Error displaying peak information: {str(e)}")
 
-    def _zoom_factory(self, event, ax):
-        """Función para manejar el zoom con la rueda del ratón"""
-        base_scale = 1.2  # Factor de escala
-        
-        # Obtener la posición actual del cursor
-        x_data, y_data = event.xdata, event.ydata
-        
-        # Si el cursor está fuera de los ejes, no hacer nada
-        if x_data is None or y_data is None:
-            return
-        
-        # Obtener los límites actuales
-        x_min, x_max = ax.get_xlim()
-        y_min, y_max = ax.get_ylim()
-        
-        # Calcular la posición relativa del cursor
-        x_rel = (x_data - x_min) / (x_max - x_min)
-        y_rel = (y_data - y_min) / (y_max - y_min)
-        
-        # Escalar según la dirección del desplazamiento de la rueda
-        if event.button == 'up':  # Zoom in
-            scale_factor = 1 / base_scale
-        elif event.button == 'down':  # Zoom out
-            scale_factor = base_scale
-        else:
-            scale_factor = 1.0
-        
-        # Calcular nuevos límites
-        new_width = (x_max - x_min) * scale_factor
-        new_height = (y_max - y_min) * scale_factor
-        
-        # Establecer nuevos límites manteniendo el cursor en la misma posición relativa
-        ax.set_xlim([x_data - x_rel * new_width, x_data + (1 - x_rel) * new_width])
-        ax.set_ylim([y_data - y_rel * new_height, y_data + (1 - y_rel) * new_height])
-        
-        # Redibujar el canvas
-        ax.figure.canvas.draw_idle()
-    
-
+   
 if __name__ == "__main__":
     app = QApplication([])
     window = MyWidget()
