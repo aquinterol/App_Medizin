@@ -861,7 +861,7 @@ class ScatterDialog(QDialog):
             QMessageBox.warning(self, "Error", f"Error generating profiles: {str(e)}")
                   
     def find_peaks_graph(self):
-        """Find and display peaks in the data along each axis"""
+        """Find and display peaks in the data along each axis with optimized peak detection"""
         try:
             # Limpiar figuras anteriores
             self.figure_x.clear()
@@ -877,71 +877,103 @@ class ScatterDialog(QDialog):
             x_profile = self.data[:, mid_y, mid_z]  # Perfil a lo largo del eje X
             y_profile = self.data[mid_x, :, mid_z]  # Perfil a lo largo del eje Y
             z_profile = self.data[mid_x, mid_y, :]  # Perfil a lo largo del eje Z
-
-            print(f"Data shape: {self.data.shape}")
-            print(f"Y profile shape: {y_profile.shape}")
             
             # Crear arrays para los ejes
             x_coords = self.x.flatten() if self.x is not None else np.arange(self.data.shape[0])
             y_coords = self.y.flatten() if self.y is not None else np.arange(self.data.shape[1])
             z_coords = self.z.flatten() if self.z is not None else np.arange(self.data.shape[2])
             
-            # Encontrar picos en cada perfil con parámetros ajustados para detectar menos picos
-            # Aumentar los valores de prominence y distance para reducir el número de picos detectados
-            peaks_x, _ = find_peaks(x_profile, prominence=0.3, distance=10)  # Valores ajustados
-            peaks_y, _ = find_peaks(y_profile, prominence=0.3, distance=10)  # Cambiado de threshold a prominence
-            peaks_z, _ = find_peaks(z_profile, prominence=0.3, distance=10)  # Valores ajustados
+            # Función auxiliar para encontrar picos con parámetros adaptados al rango de datos
+            def detect_peaks_adaptive(profile):
+                if len(profile) == 0:
+                    return []
+                    
+                # Calcular parámetros adaptados a los datos
+                data_range = np.max(profile) - np.min(profile)
+                data_std = np.std(profile)
+                
+                # Ajustar prominence basado en la desviación estándar y el rango
+                adaptive_prominence = max(0.1 * data_range, 2 * data_std)
+                
+                # Ajustar distance basado en la longitud del perfil
+                adaptive_distance = max(5, len(profile) // 20)
+                
+                # Umbral de detección basado en percentiles para ignorar ruido
+                noise_level = np.percentile(profile, 20)  # Considerar el percentil 20 como nivel de ruido
+                height = noise_level + 0.1 * data_range  # Altura mínima para considerar un pico
+                
+                # Encontrar picos con los parámetros adaptados
+                peaks, peak_properties = find_peaks(
+                    profile, 
+                    prominence=adaptive_prominence,
+                    distance=adaptive_distance,
+                    height=height
+                )
+                
+                # Ordenar picos por prominencia para quedarnos con los más significativos
+                if len(peaks) > 0:
+                    prominences = peak_properties['prominences']
+                    # Ordenar índices por prominencia descendente
+                    sorted_indices = np.argsort(prominences)[::-1]
+                    # Limitar a un máximo de 10 picos más prominentes
+                    max_peaks = min(10, len(peaks))
+                    peaks = peaks[sorted_indices[:max_peaks]]
+                    
+                return peaks
+                
+            # Procesamiento de picos utilizando el método adaptativo
+            peaks_x = detect_peaks_adaptive(x_profile)
+            peaks_y = detect_peaks_adaptive(y_profile)
+            peaks_z = detect_peaks_adaptive(z_profile)
             
             print(f"Found {len(peaks_x)} peaks in X profile")
             print(f"Found {len(peaks_y)} peaks in Y profile")
             print(f"Found {len(peaks_z)} peaks in Z profile")
             
-            # Graficar perfil X con picos
-            ax_x = self.figure_x.add_subplot(111)
-            ax_x.plot(x_coords, x_profile)
-            
-            # Asegurar que los picos tienen las mismas dimensiones que las coordenadas
-            valid_x_peaks = [p for p in peaks_x if p < len(x_coords)]
-            if valid_x_peaks:
-                ax_x.scatter([x_coords[p] for p in valid_x_peaks], [x_profile[p] for p in valid_x_peaks], 
+            # Función para graficar perfiles y picos (evita código repetitivo)
+            def plot_profile_with_peaks(ax, coords, profile, peaks, axis_name, mid_positions):
+                ax.plot(coords, profile)
+                valid_peaks = [p for p in peaks if p < len(coords)]
+                if valid_peaks:
+                    ax.scatter([coords[p] for p in valid_peaks], [profile[p] for p in valid_peaks], 
                             color='r', marker='x', s=50, picker=True, pickradius=5)
-                
-            ax_x.set_title(f'X Profile with Peaks (Y={mid_y}, Z={mid_z})')
-            ax_x.set_xlabel('X')
-            ax_x.set_ylabel('Amplitude')
+                    
+                    # Opcionalmente, anotar valores de picos para mejor visualización
+                    for p in valid_peaks:
+                        ax.annotate(f'{profile[p]:.2f}', 
+                                (coords[p], profile[p]),
+                                textcoords="offset points", 
+                                xytext=(0,10), 
+                                ha='center')
+                    
+                # Título dinámico según el eje
+                positions_str = {
+                    'X': f'Y={mid_positions[0]}, Z={mid_positions[1]}',
+                    'Y': f'X={mid_positions[0]}, Z={mid_positions[1]}',
+                    'Z': f'X={mid_positions[0]}, Y={mid_positions[1]}'
+                }
+                ax.set_title(f'{axis_name} Profile with Peaks ({positions_str[axis_name]})')
+                ax.set_xlabel(axis_name)
+                ax.set_ylabel('Amplitude')
+                return valid_peaks
             
-            # Graficar perfil Y con picos
-            ax_y = self.figure_y.add_subplot(111)
-            ax_y.plot(y_coords, y_profile)
-            
-            # Asegurar que los picos tienen las mismas dimensiones que las coordenadas
-            valid_y_peaks = [p for p in peaks_y if p < len(y_coords)]
-            if valid_y_peaks:
-                ax_y.scatter([y_coords[p] for p in valid_y_peaks], [y_profile[p] for p in valid_y_peaks], 
-                            color='r', marker='x', s=50, picker=True, pickradius=5)
-                
-            ax_y.set_title(f'Y Profile with Peaks (X={mid_x}, Z={mid_z})')
-            ax_y.set_xlabel('Y')
-            ax_y.set_ylabel('Amplitude')
-            
-            # Graficar perfil Z con picos
-            ax_z = self.figure_z.add_subplot(111)
-            ax_z.plot(z_coords, z_profile)
-            
-            # Asegurar que los picos tienen las mismas dimensiones que las coordenadas
-            valid_z_peaks = [p for p in peaks_z if p < len(z_coords)]
-            if valid_z_peaks:
-                ax_z.scatter([z_coords[p] for p in valid_z_peaks], [z_profile[p] for p in valid_z_peaks], 
-                            color='r', marker='x', s=50, picker=True, pickradius=5)
-                
-            ax_z.set_title(f'Z Profile with Peaks (X={mid_x}, Y={mid_y})')
-            ax_z.set_xlabel('Z')
-            ax_z.set_ylabel('Amplitude')
+            # Graficar los tres perfiles usando la función común
+            valid_x_peaks = plot_profile_with_peaks(self.figure_x.add_subplot(111), 
+                                                x_coords, x_profile, peaks_x, 'X', (mid_y, mid_z))
+            valid_y_peaks = plot_profile_with_peaks(self.figure_y.add_subplot(111), 
+                                                y_coords, y_profile, peaks_y, 'Y', (mid_x, mid_z))
+            valid_z_peaks = plot_profile_with_peaks(self.figure_z.add_subplot(111), 
+                                                z_coords, z_profile, peaks_z, 'Z', (mid_x, mid_y))
             
             # Almacenar los datos de cada gráfico para usar en los callbacks
             self.peak_data_x = (x_coords, x_profile, valid_x_peaks, 'X')
             self.peak_data_y = (y_coords, y_profile, valid_y_peaks, 'Y')
             self.peak_data_z = (z_coords, z_profile, valid_z_peaks, 'Z')
+            
+            # Mejorar el rendimiento utilizando tight_layout para optimizar espacio
+            self.figure_x.tight_layout()
+            self.figure_y.tight_layout()
+            self.figure_z.tight_layout()
             
             # Redibuja los canvases
             self.canvas_x.draw()
