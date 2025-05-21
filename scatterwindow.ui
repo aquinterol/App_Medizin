@@ -44,11 +44,6 @@
      <string>Manual input </string>
     </property>
    </item>
-   <item>
-    <property name="text">
-     <string>Find peaks </string>
-    </property>
-   </item>
   </widget>
   <widget class="QLineEdit" name="InputIndex">
    <property name="geometry">
@@ -89,10 +84,10 @@
   <widget class="QLabel" name="Title">
    <property name="geometry">
     <rect>
-     <x>720</x>
-     <y>20</y>
-     <width>81</width>
-     <height>20</height>
+     <x>580</x>
+     <y>10</y>
+     <width>221</width>
+     <height>31</height>
     </rect>
    </property>
    <property name="styleSheet">
@@ -100,7 +95,7 @@
 font: 14pt &quot;Segoe UI&quot;;</string>
    </property>
    <property name="text">
-    <string>FWHM</string>
+    <string>Scatterer positions</string>
    </property>
   </widget>
   <widget class="QWidget" name="FrameY" native="true">

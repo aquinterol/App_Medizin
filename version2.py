@@ -1057,6 +1057,9 @@ class ScatterDialog(QDialog):
             traceback.print_exc()  # Print the full error for debugging
 
 
+#Unir find peaks y manual input 
+#Cambiar a mm (todo)
+
 if __name__ == "__main__":
     app = QApplication([])
     window = MyWidget()

@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 
-# Form implementation generated from reading ui file 'principalwindow.ui'
+# Form implementation generated from reading ui file '.\principalwindow.ui'
 #
 # Created by: PyQt5 UI code generator 5.15.11
 #
@@ -84,7 +84,7 @@ class Ui_Widget(object):
         self.tabWidget.addTab(self.visxz, "")
         self.gridLayout.addWidget(self.tabWidget, 0, 1, 1, 1)
         self.scatter = QtWidgets.QPushButton(Widget)
-        self.scatter.setGeometry(QtCore.QRect(1100, 810, 201, 41))
+        self.scatter.setGeometry(QtCore.QRect(940, 810, 201, 41))
         self.scatter.setStyleSheet("QPushButton {\n"
 "    background-color: rgb(0, 0, 77);\n"
 "    color: white;\n"
@@ -105,6 +105,13 @@ class Ui_Widget(object):
         self.comboBox_2.setObjectName("comboBox_2")
         self.comboBox_2.addItem("")
         self.comboBox_2.addItem("")
+        self.FWHM = QtWidgets.QPushButton(Widget)
+        self.FWHM.setGeometry(QtCore.QRect(1270, 810, 201, 41))
+        self.FWHM.setStyleSheet("QPushButton {\n"
+"    background-color: rgb(0, 0, 77);\n"
+"    color: white;\n"
+"}")
+        self.FWHM.setObjectName("FWHM")
 
         self.retranslateUi(Widget)
         self.comboBox.setCurrentIndex(-1)
@@ -125,3 +132,4 @@ class Ui_Widget(object):
         self.label.setText(_translate("Widget", "Position : "))
         self.comboBox_2.setItemText(0, _translate("Widget", "Milimeters"))
         self.comboBox_2.setItemText(1, _translate("Widget", "Wavelength "))
+        self.FWHM.setText(_translate("Widget", "FWHM"))
