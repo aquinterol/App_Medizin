@@ -16,6 +16,7 @@ from matplotlib.backends.backend_qt5agg import FigureCanvasQTAgg as FigureCanvas
 from matplotlib.backends.backend_qt5agg import NavigationToolbar2QT
 from matplotlib.figure import Figure
 from scipy.signal import find_peaks
+from scipy.interpolate import interp1d
 
 class VisualizationWidget(HasTraits):
     scene = Instance(MlabSceneModel, ())
@@ -803,161 +804,128 @@ class ScatterDialog(QDialog):
     def update_manual_graphs(self):
         """Update graphs based on the current manual input value"""
 
-        # Check if we need to initialize pixel mapping
-        if not hasattr(self, 'xs_pixels') and self.x is not None and self.y is not None and self.z is not None:
-            self.xs = np.array(self.xs).flatten()
-            self.ys = np.array(self.ys).flatten()
-            self.zs = np.array(self.zs).flatten()
-
-            self.xs_pixels = np.interp(self.xs, (self.x.min(), self.x.max()), (0, self.x.shape[0] - 1)).round().astype(int)
-            self.ys_pixels = np.interp(self.ys, (self.y.min(), self.y.max()), (0, self.y.shape[0] - 1)).round().astype(int)
-            self.zs_pixels = np.interp(self.zs, (self.z.min(), self.z.max()), (0, self.z.shape[0] - 1)).round().astype(int)
+        # Inicializar interpoladores si no existen aún
+        if not hasattr(self, 'interp_x') and self.x is not None and self.y is not None and self.z is not None:
+            self.interp_x = interp1d(self.x * 1000, np.arange(len(self.x)), bounds_error=False, fill_value=-1)
+            self.interp_y = interp1d(self.y * 1000, np.arange(len(self.y)), bounds_error=False, fill_value=-1)
+            self.interp_z = interp1d(self.z * 1000, np.arange(len(self.z)), bounds_error=False, fill_value=-1)
 
         try:
-            # Get the millimeter values entered by the user
             x_mm = float(self.valor_guardado_x)
             y_mm = float(self.valor_guardado_y)
             z_mm = float(self.valor_guardado_z)
-            
-            # Verify that we have coordinate data to map from mm to indices
+
             if self.x is None or self.y is None or self.z is None:
-                QMessageBox.warning(self, "Error", "No coordinate data available for mm conversion")
+                QMessageBox.warning(self, "Error", "No hay datos de coordenadas para realizar la conversión a mm.")
                 return
-            
-            # Find the closest indices to the requested mm coordinates
-            x_index = int(np.argmin(np.abs(self.x.flatten() - x_mm)))
-            y_index = int(np.argmin(np.abs(self.y.flatten() - y_mm)))
-            z_index = int(np.argmin(np.abs(self.z.flatten() - z_mm)))
-            
-            # Verify indices are within bounds
+
+            # Convertir mm a índice usando interpoladores
+            x_index = int(round(self.interp_x(x_mm).item()))
+            y_index = int(round(self.interp_y(y_mm).item()))
+            z_index = int(round(self.interp_z(z_mm).item()))
+
             if (0 <= x_index < self.data.shape[0] and 
                 0 <= y_index < self.data.shape[1] and 
                 0 <= z_index < self.data.shape[2]):
-                
-                # Print debug information
+
+                print(f"Data array shape: {self.data.shape}")
                 print(f"Requested mm coordinates: X={x_mm}, Y={y_mm}, Z={z_mm}")
                 print(f"Corresponding indices: X={x_index}, Y={y_index}, Z={z_index}")
-                
-                # Extract data profiles
-                x_profile = self.data[:, y_index, z_index]  # Profile along X axis
-                y_profile = self.data[x_index, :, z_index]  # Profile along Y axis
-                z_profile = self.data[x_index, y_index, :]  # Profile along Z axis
-                
-                # Clear previous plots
+                print(f"Coordinate ranges in mm: X=[{self.x.min()*1000:.2f}, {self.x.max()*1000:.2f}], "
+                    f"Y=[{self.y.min()*1000:.2f}, {self.y.max()*1000:.2f}], "
+                    f"Z=[{self.z.min()*1000:.2f}, {self.z.max()*1000:.2f}]")
+
+                # Extraer perfiles
+                x_profile = self.data[:, y_index, z_index]
+                y_profile = self.data[x_index, :, z_index]
+                z_profile = self.data[x_index, y_index, :]
+
                 self.figure_x.clear()
                 self.figure_y.clear()
                 self.figure_z.clear()
-                
-                # Get coordinate arrays for plotting
-                x_coords = self.x.flatten() if self.x is not None else np.arange(self.data.shape[0])
-                y_coords = self.y.flatten() if self.y is not None else np.arange(self.data.shape[1])
-                z_coords = self.z.flatten() if self.z is not None else np.arange(self.data.shape[2])
-                
-                # Function to detect peaks with adaptive parameters
+
+                x_coords = self.x * 1000
+                y_coords = self.y * 1000
+                z_coords = self.z * 1000
+
                 def detect_peaks_adaptive(profile):
                     if len(profile) == 0:
                         return []
-                        
-                    # Calculate parameters adapted to the data
+
                     data_range = np.max(profile) - np.min(profile)
                     data_std = np.std(profile)
-                    
-                    # Adjust prominence based on standard deviation and range
                     adaptive_prominence = max(0.1 * data_range, 2 * data_std)
-                    
-                    # Adjust distance based on profile length
                     adaptive_distance = max(5, len(profile) // 20)
-                    
-                    # Detection threshold based on percentiles to ignore noise
                     noise_level = np.percentile(profile, 20)
                     height = noise_level + 0.1 * data_range
-                    
-                    # Find peaks with adapted parameters
-                    peaks, peak_properties = find_peaks(
-                        profile, 
-                        prominence=adaptive_prominence,
-                        distance=adaptive_distance,
-                        height=height
-                    )
-                    
-                    # Sort peaks by prominence to keep the most significant ones
+
+                    peaks, props = find_peaks(profile, prominence=adaptive_prominence,
+                                            distance=adaptive_distance, height=height)
+
                     if len(peaks) > 0:
-                        prominences = peak_properties['prominences']
-                        # Sort indices by descending prominence
+                        prominences = props['prominences']
                         sorted_indices = np.argsort(prominences)[::-1]
-                        # Limit to a maximum of 10 most prominent peaks
-                        max_peaks = min(10, len(peaks))
-                        peaks = peaks[sorted_indices[:max_peaks]]
-                        
+                        peaks = peaks[sorted_indices[:min(10, len(peaks))]]
                     return peaks
-                    
-                # Process peaks using the adaptive method
+
                 peaks_x = detect_peaks_adaptive(x_profile)
                 peaks_y = detect_peaks_adaptive(y_profile)
                 peaks_z = detect_peaks_adaptive(z_profile)
-                
-                # Function to plot profiles and peaks (avoid repetitive code)
+
                 def plot_profile_with_peaks(ax, coords, profile, peaks, axis_name, positions_mm):
                     ax.plot(coords, profile)
-                    valid_peaks = [p for p in peaks if p < len(coords)]
+                    valid_peaks = [p for p in peaks if 0 <= p < len(coords)]
                     if valid_peaks:
-                        ax.scatter([coords[p] for p in valid_peaks], [profile[p] for p in valid_peaks], 
+                        ax.scatter([coords[p] for p in valid_peaks], [profile[p] for p in valid_peaks],
                                 color='r', marker='x', s=50, picker=True, pickradius=5)
-                        
-                        # Optionally, annotate peak values for better visualization
                         for p in valid_peaks:
                             profile_range = np.max(profile) - np.min(profile)
                             upper_quarter = np.max(profile) - (profile_range * 0.25)
                             xytext_pos = (0, -15) if profile[p] > upper_quarter else (0, 10)
-                            ax.annotate(f'{profile[p]:.2f}', 
-                                    (coords[p], profile[p]),
-                                    textcoords="offset points", 
-                                    xytext=xytext_pos, 
-                                    ha='center')
-                        
-                    # Dynamic title based on axis
+                            ax.annotate(f'{profile[p]:.2f}', (coords[p], profile[p]),
+                                        textcoords="offset points", xytext=xytext_pos, ha='center')
+
                     positions_str = {
-                        'X': f'Y={self.y.flatten()[positions_mm[0]]:.2f}mm, Z={self.z.flatten()[positions_mm[1]]:.2f}mm',
-                        'Y': f'X={self.x.flatten()[positions_mm[0]]:.2f}mm, Z={self.z.flatten()[positions_mm[1]]:.2f}mm',
-                        'Z': f'X={self.x.flatten()[positions_mm[0]]:.2f}mm, Y={self.y.flatten()[positions_mm[1]]:.2f}mm'
+                        'X': f'Y={self.y.flatten()[positions_mm[0]] * 1000:.2f}mm, Z={self.z.flatten()[positions_mm[1]] * 1000:.2f}mm',
+                        'Y': f'X={self.x.flatten()[positions_mm[0]] * 1000:.2f}mm, Z={self.z.flatten()[positions_mm[1]] * 1000:.2f}mm',
+                        'Z': f'X={self.x.flatten()[positions_mm[0]] * 1000:.2f}mm, Y={self.y.flatten()[positions_mm[1]] * 1000:.2f}mm'
                     }
                     ax.set_title(f'{axis_name} Profile with Peaks ({positions_str[axis_name]})')
                     ax.set_xlabel(f'{axis_name} (mm)')
                     ax.set_ylabel('Amplitude')
                     return valid_peaks
-                
-                # Plot all three profiles using the common function
-                valid_x_peaks = plot_profile_with_peaks(self.figure_x.add_subplot(111), 
-                                                    x_coords, x_profile, peaks_x, 'X', (y_index, z_index))
-                valid_y_peaks = plot_profile_with_peaks(self.figure_y.add_subplot(111), 
-                                                    y_coords, y_profile, peaks_y, 'Y', (x_index, z_index))
-                valid_z_peaks = plot_profile_with_peaks(self.figure_z.add_subplot(111), 
-                                                    z_coords, z_profile, peaks_z, 'Z', (x_index, y_index))
-                
-                # Store the data for each graph to use in callbacks
+
+                valid_x_peaks = plot_profile_with_peaks(self.figure_x.add_subplot(111),
+                                                        x_coords, x_profile, peaks_x, 'X', (y_index, z_index))
+                valid_y_peaks = plot_profile_with_peaks(self.figure_y.add_subplot(111),
+                                                        y_coords, y_profile, peaks_y, 'Y', (x_index, z_index))
+                valid_z_peaks = plot_profile_with_peaks(self.figure_z.add_subplot(111),
+                                                        z_coords, z_profile, peaks_z, 'Z', (x_index, y_index))
+
                 self.peak_data_x = (x_coords, x_profile, valid_x_peaks, 'X')
                 self.peak_data_y = (y_coords, y_profile, valid_y_peaks, 'Y')
                 self.peak_data_z = (z_coords, z_profile, valid_z_peaks, 'Z')
-                
+
                 self.figure_x.subplots_adjust(top=0.9)
                 self.figure_y.subplots_adjust(top=0.9)
                 self.figure_z.subplots_adjust(top=0.9)
                 self.figure_x.tight_layout()
                 self.figure_y.tight_layout()
                 self.figure_z.tight_layout()
-                
-                # Redraw the canvases
+
                 self.canvas_x.draw()
                 self.canvas_y.draw()
                 self.canvas_z.draw()
-                
-            else:
-                QMessageBox.warning(self, "Error", f"Calculated indices out of range: X={x_index}, Y={y_index}, Z={z_index}")
 
+            else:
+                QMessageBox.warning(self, "Error", 
+                    f"The values are out of range.\n")
+                
         except Exception as e:
             import traceback
             traceback.print_exc()
-            QMessageBox.warning(self, "Error", f"Error generating profiles: {str(e)}")            
+            QMessageBox.warning(self, "Error", f"Error generando perfiles: {str(e)}")
+
 
     def _on_pick_x(self, event):
         """Handler específico para picos en el eje X"""
@@ -1052,8 +1020,6 @@ class FWHMDialog(QDialog):
         # Almacenar la data general para el grafico de la amplitud
         self.data = data 
 
-#Unir find peaks y manual input 
-#Cambiar a mm (todo)
 
 if __name__ == "__main__":
     app = QApplication([])
