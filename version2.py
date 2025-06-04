@@ -717,33 +717,108 @@ class ScatterDialog(QDialog):
                     y_profile = self.data[self.xs_pixels[point_index], :, self.zs_pixels[point_index]]
                     z_profile = self.data[self.xs_pixels[point_index], self.ys_pixels[point_index], :]
 
+                    # Encontrar los picos máximos
+                    x_max_idx = np.argmax(x_profile)
+                    y_max_idx = np.argmax(y_profile)
+                    z_max_idx = np.argmax(z_profile)
+
+                    def find_fwhm_points(profile, x_coords, max_idx):
+                        max_value = profile[max_idx]
+                        half_power_db = max_value - 6  # -6dB points
+                        
+                        # Buscar punto a la izquierda
+                        left_idx = max_idx
+                        while left_idx > 0 and profile[left_idx - 1] > half_power_db:
+                            left_idx -= 1
+                            
+                        # Buscar punto a la derecha
+                        right_idx = max_idx
+                        while right_idx < len(profile) - 1 and profile[right_idx + 1] > half_power_db:
+                            right_idx += 1
+                            
+                        # Interpolación lineal para encontrar los puntos exactos
+                        def interpolate_point(idx1, idx2):
+                            x1, y1 = x_coords[idx1], profile[idx1]
+                            x2, y2 = x_coords[idx2], profile[idx2]
+                            if y1 == y2:
+                                return x1
+                            return x1 + (half_power_db - y1) * (x2 - x1) / (y2 - y1)
+                        
+                        # Calcular puntos interpolados
+                        if left_idx > 0:
+                            left_x = interpolate_point(left_idx, left_idx - 1)
+                        else:
+                            left_x = x_coords[left_idx]
+                            
+                        if right_idx < len(profile) - 1:
+                            right_x = interpolate_point(right_idx, right_idx + 1)
+                        else:
+                            right_x = x_coords[right_idx]
+                            
+                        return left_x, right_x, half_power_db
+
                     # Limpiar figuras anteriores
                     self.figure_x.clear()
                     self.figure_y.clear()
                     self.figure_z.clear()
 
+                    # Convertir coordenadas a milímetros
+                    x_coords_mm = self.x.flatten() * 1000
+                    y_coords_mm = self.y.flatten() * 1000
+                    z_coords_mm = self.z.flatten() * 1000
+
                     # Gráfico de perfil X
                     ax_x = self.figure_x.add_subplot(111)
-                    ax_x.plot(self.x.flatten(), x_profile)
-                    ax_x.set_title('X Profile')
-                    ax_x.set_xlabel('X')
-                    ax_x.set_ylabel('Amplitude')
+                    ax_x.plot(x_coords_mm, x_profile)
+                    ax_x.plot(x_coords_mm[x_max_idx], x_profile[x_max_idx], 'ro')
+                    # Calcular y graficar FWHM (en mm)
+                    left_x, right_x, half_power = find_fwhm_points(x_profile, self.x.flatten(), x_max_idx)
+                    fwhm_x = abs(right_x - left_x) * 1000
+                    ax_x.plot([left_x * 1000, right_x * 1000], [half_power, half_power], 'm--')
+                    ax_x.plot([left_x * 1000], [half_power], 'mv')
+                    ax_x.plot([right_x * 1000], [half_power], 'mv')
+                    x_center = x_coords_mm[x_max_idx]
+                    ax_x.set_xlim(x_center - 4, x_center + 4)  # Zoom de ±4mm
+                    ax_x.set_title(f'X Profile (FWHM = {fwhm_x:.3f} mm)')
+                    ax_x.set_xlabel('X (mm)')
+                    ax_x.set_ylabel('Amplitude (dB)')
+                    ax_x.grid(True)
                     self.canvas_x.draw()
 
                     # Gráfico de perfil Y
                     ax_y = self.figure_y.add_subplot(111)
-                    ax_y.plot(self.y.flatten(), y_profile)
-                    ax_y.set_title('Y Profile')
-                    ax_y.set_xlabel('Y')
-                    ax_y.set_ylabel('Amplitude')
+                    ax_y.plot(y_coords_mm, y_profile)
+                    ax_y.plot(y_coords_mm[y_max_idx], y_profile[y_max_idx], 'ro')
+                    # Calcular y graficar FWHM (en mm)
+                    left_y, right_y, half_power = find_fwhm_points(y_profile, self.y.flatten(), y_max_idx)
+                    fwhm_y = abs(right_y - left_y) * 1000
+                    ax_y.plot([left_y * 1000, right_y * 1000], [half_power, half_power], 'm--')
+                    ax_y.plot([left_y * 1000], [half_power], 'mv')
+                    ax_y.plot([right_y * 1000], [half_power], 'mv')
+                    y_center = y_coords_mm[y_max_idx]
+                    ax_y.set_xlim(y_center - 4, y_center + 4)  # Zoom de ±4mm
+                    ax_y.set_title(f'Y Profile (FWHM = {fwhm_y:.3f} mm)')
+                    ax_y.set_xlabel('Y (mm)')
+                    ax_y.set_ylabel('Amplitude (dB)')
+                    ax_y.grid(True)
                     self.canvas_y.draw()
 
                     # Gráfico de perfil Z
                     ax_z = self.figure_z.add_subplot(111)
-                    ax_z.plot(self.z.flatten(), z_profile)
-                    ax_z.set_title('Z Profile')
-                    ax_z.set_xlabel('Z')
-                    ax_z.set_ylabel('Amplitude')
+                    ax_z.plot(z_coords_mm, z_profile)
+                    ax_z.plot(z_coords_mm[z_max_idx], z_profile[z_max_idx], 'ro')
+                    # Calcular y graficar FWHM (en mm)
+                    left_z, right_z, half_power = find_fwhm_points(z_profile, self.z.flatten(), z_max_idx)
+                    fwhm_z = abs(right_z - left_z) * 1000
+                    ax_z.plot([left_z * 1000, right_z * 1000], [half_power, half_power], 'm--')
+                    ax_z.plot([left_z * 1000], [half_power], 'mv')
+                    ax_z.plot([right_z * 1000], [half_power], 'mv')
+                    z_center = z_coords_mm[z_max_idx]
+                    ax_z.set_xlim(z_center - 4, z_center + 4)  # Zoom de ±4mm
+                    ax_z.set_title(f'Z Profile (FWHM = {fwhm_z:.3f} mm)')
+                    ax_z.set_xlabel('Z (mm)')
+                    ax_z.set_ylabel('Amplitude (dB)')
+                    ax_z.grid(True)
                     self.canvas_z.draw()
 
                 # Disconnect previous connection if it exists
@@ -1056,9 +1131,6 @@ class ScatterDialog(QDialog):
             import traceback
             traceback.print_exc()  # Print the full error for debugging
 
-
-#Unir find peaks y manual input 
-#Cambiar a mm (todo)
 
 if __name__ == "__main__":
     app = QApplication([])

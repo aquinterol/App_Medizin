@@ -802,7 +802,7 @@ class ScatterDialog(QDialog):
             self.find_peaks_graph()
 
     def update_manual_graphs(self):
-        """Update graphs based on the current manual input value"""
+        """Update graphs baseggd on the current manual input value"""
 
         # Inicializar interpoladores si no existen aún
         if not hasattr(self, 'interp_x') and self.x is not None and self.y is not None and self.z is not None:
