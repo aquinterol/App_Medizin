@@ -8,6 +8,7 @@ from traitsui.api import View, Item
 from mayavi import mlab
 from ui_pw import Ui_Widget
 from ui_sw import Ui_Dialog  
+from ui_fwhm import Ui_Form  
 from PyQt5.QtCore import Qt 
 import scipy.io
 import numpy as np
@@ -588,6 +589,7 @@ class ScatterDialog(QDialog):
         # Configurar estado inicial de los controles
         self.ui.combbsimu.setEnabled(False)
         self.ui.InputIndex.setEnabled(False)
+        self.ui.buttonTable.clicked.connect(self.open_table_dialog)
 
         # Configurar los lienzos de Matplotlib ANTES de conectar señales
         self.setup_matplotlib_canvases()
@@ -870,7 +872,7 @@ class ScatterDialog(QDialog):
             x_mm = self.valor_guardado_x
             y_mm = self.valor_guardado_y
             z_mm = self.valor_guardado_z
-            
+
             # Verificar que el índice esté dentro de los límites de la matriz
             if self.data is not None:
                 # Obtener los rangos válidos en milímetros
@@ -892,12 +894,12 @@ class ScatterDialog(QDialog):
                     error_text = "Input values out of range:\n" + "\n".join(error_messages)
                     QMessageBox.warning(self, "Out of Range Error", error_text)
                     return
-                
+
                 # Si todos los valores están en rango, continuar con la interpolación
                 x_m = x_mm / 1000
                 y_m = y_mm / 1000
                 z_m = z_mm / 1000
-                
+
                 # Interpolar para obtener los índices
                 x_index = int(np.interp(x_m, 
                                     self.x.flatten(), 
@@ -908,73 +910,59 @@ class ScatterDialog(QDialog):
                 z_index = int(np.interp(z_m, 
                                     self.z.flatten(), 
                                     np.arange(self.data.shape[2])))
-                     
+
                 # Extraer perfiles de datos
                 x_profile = self.data[:, y_index, z_index]  # Perfil a lo largo del eje X
                 y_profile = self.data[x_index, :, z_index]  # Perfil a lo largo del eje Y
                 z_profile = self.data[x_index, y_index, :]  # Perfil a lo largo del eje Z
-                
+
                 # Convertir coordenadas a milímetros para la visualización
                 x_coords = self.x.flatten() * 1000
                 y_coords = self.y.flatten() * 1000
                 z_coords = self.z.flatten() * 1000
 
-                
-                # Función para encontrar todos los picos
                 def find_peaks_and_values(profile):
                     max_value = np.max(profile)
                     min_value = np.min(profile)
                     signal_range = max_value - min_value
-                    
-                    # Calcular la prominencia mínima de forma adaptativa
-                    # Usamos un porcentaje del rango de la señal
-                    adaptive_prominence = signal_range * 0.1  # 10% del rango de la señal
-                    
-                    # Calcular el umbral de altura de forma adaptativa
-                    height_threshold = min_value + signal_range * 0.1  # 10% por encima del mínimo
-                    
-                    # Encontrar picos con parámetros adaptativos
+
+                    adaptive_prominence = signal_range * 0.1
+                    height_threshold = min_value + signal_range * 0.1
+
                     peaks, properties = find_peaks(profile,
                                                 prominence=adaptive_prominence,
                                                 height=height_threshold,
-                                                distance=10)  # Mantener una distancia mínima razonable
-                    
-                    # Si no se encuentran picos con los parámetros iniciales, reducir los criterios
+                                                distance=10)
                     if len(peaks) == 0:
-                        # Reducir la prominencia mínima
-                        adaptive_prominence = signal_range * 0.05  # 5% del rango de la señal
-                        height_threshold = min_value + signal_range * 0.05  # 5% por encima del mínimo
-                        
+                        adaptive_prominence = signal_range * 0.05
+                        height_threshold = min_value + signal_range * 0.05
                         peaks, properties = find_peaks(profile,
                                                     prominence=adaptive_prominence,
                                                     height=height_threshold,
                                                     distance=5)
-                    
-                    # Si aún no se encuentran picos, buscar el máximo global
                     if len(peaks) == 0:
                         peaks = np.array([np.argmax(profile)])
-                    
-                    # Ordenar los picos por amplitud
+
                     peak_values = profile[peaks]
-                    sorted_indices = np.argsort(peak_values)[::-1]  # Ordenar de mayor a menor
+                    sorted_indices = np.argsort(peak_values)[::-1]
                     peaks = peaks[sorted_indices]
-                    
-                    # Limitar a los 3 picos más altos
                     peaks = peaks[:5]
-                    
                     return peaks, [profile[peak] for peak in peaks]
 
                 # Limpiar gráficos anteriores
                 self.figure_x.clear()
                 self.figure_y.clear()
                 self.figure_z.clear()
-                
+
+                # --- GUARDAR para callback ---
+                self._peak_data = {}
+
                 # Graficar perfil X con todos los picos
                 ax_x = self.figure_x.add_subplot(111)
                 ax_x.plot(x_coords, x_profile)
                 peaks_x, values_x = find_peaks_and_values(x_profile)
+                red_dots_x = ax_x.plot(x_coords[peaks_x], [x_profile[peak] for peak in peaks_x], 'ro', picker=5)[0]
                 for peak, value in zip(peaks_x, values_x):
-                    ax_x.plot(x_coords[peak], value, 'ro')
                     ax_x.annotate(f'{value:.1f}dB', 
                                 (x_coords[peak], value),
                                 xytext=(0, 10), 
@@ -986,13 +974,18 @@ class ScatterDialog(QDialog):
                 ax_x.set_ylabel('Amplitude (dB)')
                 ax_x.grid(True)
                 self.canvas_x.draw()
+                # Guardar info para callback
+                self._peak_data['x'] = {
+                    'coords': x_coords[peaks_x],
+                    'values': [x_profile[peak] for peak in peaks_x]
+                }
 
                 # Graficar perfil Y con todos los picos
                 ax_y = self.figure_y.add_subplot(111)
                 ax_y.plot(y_coords, y_profile)
                 peaks_y, values_y = find_peaks_and_values(y_profile)
+                red_dots_y = ax_y.plot(y_coords[peaks_y], [y_profile[peak] for peak in peaks_y], 'ro', picker=5)[0]
                 for peak, value in zip(peaks_y, values_y):
-                    ax_y.plot(y_coords[peak], value, 'ro')
                     ax_y.annotate(f'{value:.1f}dB', 
                                 (y_coords[peak], value),
                                 xytext=(0, 10), 
@@ -1004,13 +997,17 @@ class ScatterDialog(QDialog):
                 ax_y.set_ylabel('Amplitude (dB)')
                 ax_y.grid(True)
                 self.canvas_y.draw()
+                self._peak_data['y'] = {
+                    'coords': y_coords[peaks_y],
+                    'values': [y_profile[peak] for peak in peaks_y]
+                }
 
                 # Graficar perfil Z con todos los picos
                 ax_z = self.figure_z.add_subplot(111)
                 ax_z.plot(z_coords, z_profile)
                 peaks_z, values_z = find_peaks_and_values(z_profile)
+                red_dots_z = ax_z.plot(z_coords[peaks_z], [z_profile[peak] for peak in peaks_z], 'ro', picker=5)[0]
                 for peak, value in zip(peaks_z, values_z):
-                    ax_z.plot(z_coords[peak], value, 'ro')
                     ax_z.annotate(f'{value:.1f}dB', 
                                 (z_coords[peak], value),
                                 xytext=(0, 10), 
@@ -1022,9 +1019,75 @@ class ScatterDialog(QDialog):
                 ax_z.set_ylabel('Amplitude (dB)')
                 ax_z.grid(True)
                 self.canvas_z.draw()
+                self._peak_data['z'] = {
+                    'coords': z_coords[peaks_z],
+                    'values': [z_profile[peak] for peak in peaks_z]
+                }
+
+                # --- ACCIÓN DE CLIC PARA PUNTOS ROJOS ---
+                def on_pick_x(event):
+                    if event.artist != red_dots_x:
+                        return
+                    mouse_event = event.mouseevent
+                    ind = event.ind[0]
+                    x_val = self._peak_data['x']['coords'][ind]
+                    y_val = self._peak_data['x']['values'][ind]
+                    QMessageBox.information(self, "Valor del punto",
+                        f"Perfil X\nX = {x_val:.2f} mm\nAmplitud = {y_val:.2f} dB")
+
+                def on_pick_y(event):
+                    if event.artist != red_dots_y:
+                        return
+                    mouse_event = event.mouseevent
+                    ind = event.ind[0]
+                    y_val = self._peak_data['y']['coords'][ind]
+                    amp_val = self._peak_data['y']['values'][ind]
+                    QMessageBox.information(self, "Valor del punto",
+                        f"Perfil Y\nY = {y_val:.2f} mm\nAmplitud = {amp_val:.2f} dB")
+
+                def on_pick_z(event):
+                    if event.artist != red_dots_z:
+                        return
+                    mouse_event = event.mouseevent
+                    ind = event.ind[0]
+                    z_val = self._peak_data['z']['coords'][ind]
+                    amp_val = self._peak_data['z']['values'][ind]
+                    QMessageBox.information(self, "Valor del punto",
+                        f"Perfil Z\nZ = {z_val:.2f} mm\nAmplitud = {amp_val:.2f} dB")
+
+                # Quitar conexiones previas para evitar mensajes duplicados
+                try:
+                    self.canvas_x.mpl_disconnect(self._xpick_cid)
+                except AttributeError:
+                    pass
+                try:
+                    self.canvas_y.mpl_disconnect(self._ypick_cid)
+                except AttributeError:
+                    pass
+                try:
+                    self.canvas_z.mpl_disconnect(self._zpick_cid)
+                except AttributeError:
+                    pass
+                self._xpick_cid = self.canvas_x.mpl_connect('pick_event', on_pick_x)
+                self._ypick_cid = self.canvas_y.mpl_connect('pick_event', on_pick_y)
+                self._zpick_cid = self.canvas_z.mpl_connect('pick_event', on_pick_z)
 
         except Exception as e:
             QMessageBox.warning(self, "Error", f"Error generating profiles: {str(e)}")
+
+    def open_table_dialog(self):
+        try:
+            self.dialog = DialogWindow(self)
+            self.dialog.exec_()
+        except Exception as e:
+            QMessageBox.critical(self, "Error", f"No se pudo abrir el gráfico de dispersión: {str(e)}")
+
+class DialogWindow(QDialog):
+    def __init__(self, parent=None):
+        super().__init__(parent)
+        self.ui = Ui_Form()
+        self.ui.setupUi(self)            
+        
             
 
 if __name__ == "__main__":
@@ -1035,4 +1098,3 @@ if __name__ == "__main__":
 
 #VERSION FINAL 
 #Exportr en excel o txt -> FWHM 
-#Mostar el valor del punto 
