@@ -774,7 +774,7 @@ class ScatterDialog(QDialog):
                     ax_x.plot([left_x * 1000], [half_power], 'mv')
                     ax_x.plot([right_x * 1000], [half_power], 'mv')
                     x_center = x_coords_mm[x_max_idx]
-                    ax_x.set_xlim(x_center - 4, x_center + 4)  # Zoom de ±4mm
+                    ax_x.set_xlim(x_center - 4, x_center + 4)  # Zoom VARIABLE 
                     ax_x.set_title(f'X Profile (FWHM = {fwhm_x:.3f} mm)')
                     ax_x.set_xlabel('X (mm)')
                     ax_x.set_ylabel('Amplitude (dB)')
@@ -1034,3 +1034,5 @@ if __name__ == "__main__":
     sys.exit(app.exec_())
 
 #VERSION FINAL 
+#Exportr en excel o txt -> FWHM 
+#Mostar el valor del punto 

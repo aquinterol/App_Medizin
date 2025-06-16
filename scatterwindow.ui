@@ -131,8 +131,8 @@ font: 14pt &quot;Segoe UI&quot;;</string>
   <widget class="QPushButton" name="buttonGraph">
    <property name="geometry">
     <rect>
-     <x>660</x>
-     <y>720</y>
+     <x>470</x>
+     <y>730</y>
      <width>141</width>
      <height>29</height>
     </rect>
@@ -197,6 +197,51 @@ font: 14pt &quot;Segoe UI&quot;;</string>
    </property>
    <property name="text">
     <string/>
+   </property>
+  </widget>
+  <widget class="QLineEdit" name="InputZoom">
+   <property name="geometry">
+    <rect>
+     <x>1260</x>
+     <y>90</y>
+     <width>113</width>
+     <height>28</height>
+    </rect>
+   </property>
+   <property name="text">
+    <string/>
+   </property>
+  </widget>
+  <widget class="QLabel" name="zoomvalue">
+   <property name="geometry">
+    <rect>
+     <x>1240</x>
+     <y>60</y>
+     <width>191</width>
+     <height>20</height>
+    </rect>
+   </property>
+   <property name="text">
+    <string>Value horizontal zoom </string>
+   </property>
+  </widget>
+  <widget class="QPushButton" name="buttonTable">
+   <property name="geometry">
+    <rect>
+     <x>900</x>
+     <y>730</y>
+     <width>141</width>
+     <height>29</height>
+    </rect>
+   </property>
+   <property name="styleSheet">
+    <string notr="true">QPushButton {
+    background-color: rgb(0, 0, 77);
+    color: white;
+}</string>
+   </property>
+   <property name="text">
+    <string>Table Values</string>
    </property>
   </widget>
  </widget>

@@ -50,7 +50,7 @@ class Ui_Dialog(object):
         self.combbsimu.setGeometry(QtCore.QRect(10, 120, 451, 28))
         self.combbsimu.setObjectName("combbsimu")
         self.buttonGraph = QtWidgets.QPushButton(Dialog)
-        self.buttonGraph.setGeometry(QtCore.QRect(660, 720, 141, 29))
+        self.buttonGraph.setGeometry(QtCore.QRect(470, 730, 141, 29))
         self.buttonGraph.setStyleSheet("QPushButton {\n"
 "    background-color: rgb(0, 0, 77);\n"
 "    color: white;\n"
@@ -70,6 +70,20 @@ class Ui_Dialog(object):
         self.InputIndez.setGeometry(QtCore.QRect(1280, 670, 113, 28))
         self.InputIndez.setText("")
         self.InputIndez.setObjectName("InputIndez")
+        self.InputZoom = QtWidgets.QLineEdit(Dialog)
+        self.InputZoom.setGeometry(QtCore.QRect(1260, 90, 113, 28))
+        self.InputZoom.setText("")
+        self.InputZoom.setObjectName("InputZoom")
+        self.zoomvalue = QtWidgets.QLabel(Dialog)
+        self.zoomvalue.setGeometry(QtCore.QRect(1240, 60, 191, 20))
+        self.zoomvalue.setObjectName("zoomvalue")
+        self.buttonTable = QtWidgets.QPushButton(Dialog)
+        self.buttonTable.setGeometry(QtCore.QRect(900, 730, 141, 29))
+        self.buttonTable.setStyleSheet("QPushButton {\n"
+"    background-color: rgb(0, 0, 77);\n"
+"    color: white;\n"
+"}")
+        self.buttonTable.setObjectName("buttonTable")
 
         self.retranslateUi(Dialog)
         QtCore.QMetaObject.connectSlotsByName(Dialog)
@@ -84,3 +98,5 @@ class Ui_Dialog(object):
         self.buttonGraph.setText(_translate("Dialog", "Graph "))
         self.label_y.setText(_translate("Dialog", "Input index or position on Y  "))
         self.label_z.setText(_translate("Dialog", "Input index or position on Z  "))
+        self.zoomvalue.setText(_translate("Dialog", "Value horizontal zoom "))
+        self.buttonTable.setText(_translate("Dialog", "Table Values"))
