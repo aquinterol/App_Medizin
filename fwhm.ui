@@ -6,8 +6,8 @@
    <rect>
     <x>0</x>
     <y>0</y>
-    <width>607</width>
-    <height>621</height>
+    <width>566</width>
+    <height>490</height>
    </rect>
   </property>
   <property name="windowTitle">
@@ -16,7 +16,7 @@
   <widget class="QLabel" name="F_title">
    <property name="geometry">
     <rect>
-     <x>220</x>
+     <x>200</x>
      <y>30</y>
      <width>221</width>
      <height>31</height>
@@ -24,6 +24,7 @@
    </property>
    <property name="styleSheet">
     <string notr="true">color: rgb(0, 0, 127);
+font: 900 9pt &quot;Segoe UI&quot;;
 font: 14pt &quot;Segoe UI&quot;;</string>
    </property>
    <property name="text">
@@ -33,10 +34,10 @@ font: 14pt &quot;Segoe UI&quot;;</string>
   <widget class="QFrame" name="frame">
    <property name="geometry">
     <rect>
-     <x>40</x>
+     <x>30</x>
      <y>90</y>
-     <width>541</width>
-     <height>491</height>
+     <width>501</width>
+     <height>371</height>
     </rect>
    </property>
    <property name="frameShape">
@@ -50,8 +51,8 @@ font: 14pt &quot;Segoe UI&quot;;</string>
      <rect>
       <x>0</x>
       <y>0</y>
-      <width>541</width>
-      <height>491</height>
+      <width>501</width>
+      <height>371</height>
      </rect>
     </property>
     <column>
@@ -61,17 +62,17 @@ font: 14pt &quot;Segoe UI&quot;;</string>
     </column>
     <column>
      <property name="text">
-      <string>X</string>
+      <string>X (mm)</string>
      </property>
     </column>
     <column>
      <property name="text">
-      <string>Y</string>
+      <string> Y (mm)</string>
      </property>
     </column>
     <column>
      <property name="text">
-      <string>Z</string>
+      <string>Z (mm)</string>
      </property>
     </column>
    </widget>

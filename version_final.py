@@ -9,10 +9,8 @@ from mayavi import mlab
 from ui_pw import Ui_Widget
 from ui_sw import Ui_Dialog  
 from ui_fwhm import Ui_Form  
-from PyQt5.QtCore import Qt 
 import scipy.io
 import numpy as np
-import matplotlib.pyplot as plt
 from matplotlib.backends.backend_qt5agg import FigureCanvasQTAgg as FigureCanvas
 from matplotlib.backends.backend_qt5agg import NavigationToolbar2QT
 from matplotlib.figure import Figure
@@ -589,7 +587,10 @@ class ScatterDialog(QDialog):
         # Configurar estado inicial de los controles
         self.ui.combbsimu.setEnabled(False)
         self.ui.InputIndex.setEnabled(False)
+        self.ui.buttonTable.setEnabled(False)
+        self.ui.buttonGraph.setEnabled(False)
         self.ui.buttonTable.clicked.connect(self.open_table_dialog)
+       
 
         # Configurar los lienzos de Matplotlib ANTES de conectar señales
         self.setup_matplotlib_canvases()
@@ -611,6 +612,10 @@ class ScatterDialog(QDialog):
 
         # Llamar al método inicialmente para configurar el estado correcto
         self.on_combobox_changed(self.ui.combbprincipal.currentIndex()) 
+
+        #Inicialización del zoom
+        self.zoom_window = 4.0
+        self.ui.InputZoom.textChanged.connect(self.update_zoom_window)
 
     def populate_simulation_points(self):
         self.ui.combbsimu.clear()
@@ -642,22 +647,31 @@ class ScatterDialog(QDialog):
             self.valor_guardado_y = 0  # Si hay error, poner un valor predeterminado
             self.valor_guardado_z = 0  # Si hay error, poner un valor predeterminado
 
-    def get_fwhm(self, profile, axis):
-        # Calcula el FWHM para un perfil y eje (en mm)
+    
+    def find_fwhm_points(self, profile, axis):
+        """
+        Devuelve:
+          - extremo izquierdo (mm)
+          - extremo derecho (mm)
+          - FWHM (mm)
+          - nivel half-power (dB)
+        """
         profile = np.array(profile)
         axis = np.array(axis).flatten()
         max_idx = np.argmax(profile)
         max_value = profile[max_idx]
         half_power_db = max_value - 6
 
+        # Buscar punto a la izquierda
         left_idx = max_idx
         while left_idx > 0 and profile[left_idx - 1] > half_power_db:
             left_idx -= 1
+        # Buscar punto a la derecha
         right_idx = max_idx
         while right_idx < len(profile) - 1 and profile[right_idx + 1] > half_power_db:
             right_idx += 1
 
-        def interpolate(idx1, idx2):
+        def interpolate_point(idx1, idx2):
             x1, y1 = axis[idx1], profile[idx1]
             x2, y2 = axis[idx2], profile[idx2]
             if y1 == y2:
@@ -665,27 +679,28 @@ class ScatterDialog(QDialog):
             return x1 + (half_power_db - y1) * (x2 - x1) / (y2 - y1)
 
         if left_idx > 0:
-            left_x = interpolate(left_idx, left_idx - 1)
+            left_x = interpolate_point(left_idx, left_idx - 1)
         else:
             left_x = axis[left_idx]
         if right_idx < len(profile) - 1:
-            right_x = interpolate(right_idx, right_idx + 1)
+            right_x = interpolate_point(right_idx, right_idx + 1)
         else:
             right_x = axis[right_idx]
-        return abs(right_x - left_x) * 1000  # mm
+        fwhm = abs(right_x - left_x) * 1000  # mm
+        return left_x * 1000, right_x * 1000, fwhm, half_power_db
 
     def calculate_all_fwhms(self):
-        # Calcula FWHM para todos los puntos de simulación
+        # Calcula FWHM para todos los puntos de simulación usando find_fwhm_points
         fwhm_list = []
         for idx in range(len(self.xs_pixels)):
             x_profile = self.data[:, self.ys_pixels[idx], self.zs_pixels[idx]]
             y_profile = self.data[self.xs_pixels[idx], :, self.zs_pixels[idx]]
             z_profile = self.data[self.xs_pixels[idx], self.ys_pixels[idx], :]
-            fwhm_x = self.get_fwhm(x_profile, self.x)
-            fwhm_y = self.get_fwhm(y_profile, self.y)
-            fwhm_z = self.get_fwhm(z_profile, self.z)
+            _, _, fwhm_x, _ = self.find_fwhm_points(x_profile, self.x)
+            _, _, fwhm_y, _ = self.find_fwhm_points(y_profile, self.y)
+            _, _, fwhm_z, _ = self.find_fwhm_points(z_profile, self.z)
             fwhm_list.append((idx, fwhm_x, fwhm_y, fwhm_z))
-        return fwhm_list        
+        return fwhm_list     
             
     def setup_matplotlib_canvases(self):
         """Configurar lienzos de Matplotlib para X, Y, Z con NavigationToolbar"""
@@ -718,6 +733,23 @@ class ScatterDialog(QDialog):
         self.figure_y.set_tight_layout(True)
         self.figure_z.set_tight_layout(True)
         
+    def update_zoom_window(self):
+        """Actualiza self.zoom_window cuando el usuario edita InputZoom."""
+        texto = self.ui.InputZoom.text().strip()
+        try:
+            valor = float(texto)
+            if valor <= 0:
+                raise ValueError
+            self.zoom_window = valor
+        except ValueError:
+            QMessageBox.warning(
+                self, "Valor inválido",
+            )
+            self.ui.InputZoom.setText(str(self.zoom_window))
+            return
+
+        # si ya hay perfiles dibujados, redibújalos con el nuevo zoom
+        self.on_combobox_changed()    
 
     def on_combobox_changed(self, index):
         # Obtener el texto seleccionado
@@ -737,6 +769,8 @@ class ScatterDialog(QDialog):
         # Habilitar controles basados en la selección
         if choice == "Simulation peaks ":
             self.ui.combbsimu.setEnabled(True)
+            self.ui.buttonTable.setEnabled(True)
+            self.ui.buttonGraph.setEnabled(False)
             
             # Mapear coordenadas si se proporcionan rangos originales
             if self.x is not None and self.y is not None and self.z is not None:
@@ -765,41 +799,6 @@ class ScatterDialog(QDialog):
                     y_max_idx = np.argmax(y_profile)
                     z_max_idx = np.argmax(z_profile)
 
-                    def find_fwhm_points(profile, x_coords, max_idx):
-                        max_value = profile[max_idx]
-                        half_power_db = max_value - 6  # -6dB points
-                        
-                        # Buscar punto a la izquierda
-                        left_idx = max_idx
-                        while left_idx > 0 and profile[left_idx - 1] > half_power_db:
-                            left_idx -= 1
-                            
-                        # Buscar punto a la derecha
-                        right_idx = max_idx
-                        while right_idx < len(profile) - 1 and profile[right_idx + 1] > half_power_db:
-                            right_idx += 1
-                            
-                        # Interpolación lineal para encontrar los puntos exactos
-                        def interpolate_point(idx1, idx2):
-                            x1, y1 = x_coords[idx1], profile[idx1]
-                            x2, y2 = x_coords[idx2], profile[idx2]
-                            if y1 == y2:
-                                return x1
-                            return x1 + (half_power_db - y1) * (x2 - x1) / (y2 - y1)
-                        
-                        # Calcular puntos interpolados
-                        if left_idx > 0:
-                            left_x = interpolate_point(left_idx, left_idx - 1)
-                        else:
-                            left_x = x_coords[left_idx]
-                            
-                        if right_idx < len(profile) - 1:
-                            right_x = interpolate_point(right_idx, right_idx + 1)
-                        else:
-                            right_x = x_coords[right_idx]
-                            
-                        return left_x, right_x, half_power_db
-
                     # Limpiar figuras anteriores
                     self.figure_x.clear()
                     self.figure_y.clear()
@@ -815,13 +814,12 @@ class ScatterDialog(QDialog):
                     ax_x.plot(x_coords_mm, x_profile)
                     ax_x.plot(x_coords_mm[x_max_idx], x_profile[x_max_idx], 'ro')
                     # Calcular y graficar FWHM (en mm)
-                    left_x, right_x, half_power = find_fwhm_points(x_profile, self.x.flatten(), x_max_idx)
-                    fwhm_x = abs(right_x - left_x) * 1000
-                    ax_x.plot([left_x * 1000, right_x * 1000], [half_power, half_power], 'm--')
-                    ax_x.plot([left_x * 1000], [half_power], 'mv')
-                    ax_x.plot([right_x * 1000], [half_power], 'mv')
+                    left_x, right_x, fwhm_x, half_power_x = self.find_fwhm_points(x_profile, self.x)
+                    ax_x.plot([left_x, right_x], [half_power_x, half_power_x], 'm--')
+                    ax_x.plot([left_x], [half_power_x], 'mv')
+                    ax_x.plot([right_x], [half_power_x], 'mv')
                     x_center = x_coords_mm[x_max_idx]
-                    ax_x.set_xlim(x_center - 4, x_center + 4)  # Zoom VARIABLE 
+                    ax_x.set_xlim(x_center - self.zoom_window, x_center + self.zoom_window)  # Zoom VARIABLE 
                     ax_x.set_title(f'X Profile (FWHM = {fwhm_x:.3f} mm)')
                     ax_x.set_xlabel('X (mm)')
                     ax_x.set_ylabel('Amplitude (dB)')
@@ -833,13 +831,12 @@ class ScatterDialog(QDialog):
                     ax_y.plot(y_coords_mm, y_profile)
                     ax_y.plot(y_coords_mm[y_max_idx], y_profile[y_max_idx], 'ro')
                     # Calcular y graficar FWHM (en mm)
-                    left_y, right_y, half_power = find_fwhm_points(y_profile, self.y.flatten(), y_max_idx)
-                    fwhm_y = abs(right_y - left_y) * 1000
-                    ax_y.plot([left_y * 1000, right_y * 1000], [half_power, half_power], 'm--')
-                    ax_y.plot([left_y * 1000], [half_power], 'mv')
-                    ax_y.plot([right_y * 1000], [half_power], 'mv')
+                    left_y, right_y, fwhm_y, half_power_y = self.find_fwhm_points(y_profile, self.y)
+                    ax_y.plot([left_y, right_y], [half_power_y, half_power_y], 'm--')
+                    ax_y.plot([left_y], [half_power_y], 'mv')
+                    ax_y.plot([right_y], [half_power_y], 'mv')
                     y_center = y_coords_mm[y_max_idx]
-                    ax_y.set_xlim(y_center - 4, y_center + 4)  # Zoom de ±4mm
+                    ax_y.set_xlim(y_center - self.zoom_window, y_center + self.zoom_window)  # Zoom de ±4mm
                     ax_y.set_title(f'Y Profile (FWHM = {fwhm_y:.3f} mm)')
                     ax_y.set_xlabel('Y (mm)')
                     ax_y.set_ylabel('Amplitude (dB)')
@@ -851,13 +848,12 @@ class ScatterDialog(QDialog):
                     ax_z.plot(z_coords_mm, z_profile)
                     ax_z.plot(z_coords_mm[z_max_idx], z_profile[z_max_idx], 'ro')
                     # Calcular y graficar FWHM (en mm)
-                    left_z, right_z, half_power = find_fwhm_points(z_profile, self.z.flatten(), z_max_idx)
-                    fwhm_z = abs(right_z - left_z) * 1000
-                    ax_z.plot([left_z * 1000, right_z * 1000], [half_power, half_power], 'm--')
-                    ax_z.plot([left_z * 1000], [half_power], 'mv')
-                    ax_z.plot([right_z * 1000], [half_power], 'mv')
+                    left_z, right_z, fwhm_z, half_power_z = self.find_fwhm_points(z_profile, self.z)
+                    ax_z.plot([left_z, right_z], [half_power_z, half_power_z], 'm--')
+                    ax_z.plot([left_z], [half_power_z], 'mv')
+                    ax_z.plot([right_z], [half_power_z], 'mv')
                     z_center = z_coords_mm[z_max_idx]
-                    ax_z.set_xlim(z_center - 4, z_center + 4)  # Zoom de ±4mm
+                    ax_z.set_xlim(z_center - self.zoom_window, z_center + self.zoom_window)  # Zoom de ±4mm
                     ax_z.set_title(f'Z Profile (FWHM = {fwhm_z:.3f} mm)')
                     ax_z.set_xlabel('Z (mm)')
                     ax_z.set_ylabel('Amplitude (dB)')
@@ -882,6 +878,8 @@ class ScatterDialog(QDialog):
             self.ui.InputIndex.setEnabled(True)
             self.ui.InputIndey.setEnabled(True)
             self.ui.InputIndez.setEnabled(True)
+            self.ui.buttonGraph.setEnabled(True)
+            self.ui.buttonTable.setEnabled(False)
     
             try:
                 # Intentar convertir el texto actual a un entero
@@ -1133,18 +1131,19 @@ class DialogWindow(QDialog):
     def __init__(self, parent=None):
         super().__init__(parent)
         self.ui = Ui_Form()
-        self.ui.setupUi(self)   
+        self.ui.setupUi(self)  
+        self.ui.tableWidget.verticalHeader().setVisible(False)
 
     def load_fwhm_table(self, fwhm_list):
         """
         fwhm_list: lista de tuplas (punto, fwhm_x, fwhm_y, fwhm_z)
         """
         self.ui.tableWidget.setRowCount(len(fwhm_list))
-        for i, (pt, fx, fy, fz) in enumerate(fwhm_list):
-            self.ui.tableWidget.setItem(i, 0, QTableWidgetItem(str(pt)))
-            self.ui.tableWidget.setItem(i, 1, QTableWidgetItem(f"{fx:.3f}"))
-            self.ui.tableWidget.setItem(i, 2, QTableWidgetItem(f"{fy:.3f}"))
-            self.ui.tableWidget.setItem(i, 3, QTableWidgetItem(f"{fz:.3f}"))             
+        for row, (pt, fx, fy, fz) in enumerate(fwhm_list):
+            self.ui.tableWidget.setItem(row, 0, QTableWidgetItem(str(pt)))
+            self.ui.tableWidget.setItem(row, 1, QTableWidgetItem(f"{fx:.3f}"))
+            self.ui.tableWidget.setItem(row, 2, QTableWidgetItem(f"{fy:.3f}"))
+            self.ui.tableWidget.setItem(row, 3, QTableWidgetItem(f"{fz:.3f}"))             
         
             
 
@@ -1154,5 +1153,4 @@ if __name__ == "__main__":
     window.show()
     sys.exit(app.exec_())
 
-#VERSION FINAL 
-#Exportr en excel o txt -> FWHM 
+#VERSION FINAL  
