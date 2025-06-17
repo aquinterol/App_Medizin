@@ -615,8 +615,8 @@ class ScatterDialog(QDialog):
 
         #Inicialización del zoom
         self.zoom_window = 4.0
-        self.ui.InputZoom.textChanged.connect(self.update_zoom_window)
-
+        self.ui.InputZoom.editingFinished.connect(self.update_zoom_window)
+    
     def populate_simulation_points(self):
         self.ui.combbsimu.clear()
 
@@ -734,7 +734,6 @@ class ScatterDialog(QDialog):
         self.figure_z.set_tight_layout(True)
         
     def update_zoom_window(self):
-        """Actualiza self.zoom_window cuando el usuario edita InputZoom."""
         texto = self.ui.InputZoom.text().strip()
         try:
             valor = float(texto)
@@ -742,14 +741,16 @@ class ScatterDialog(QDialog):
                 raise ValueError
             self.zoom_window = valor
         except ValueError:
-            QMessageBox.warning(
-                self, "Valor inválido",
-            )
+            QMessageBox.warning(self, "Wrong number", "The value must be positive.")
             self.ui.InputZoom.setText(str(self.zoom_window))
             return
 
-        # si ya hay perfiles dibujados, redibújalos con el nuevo zoom
-        self.on_combobox_changed()    
+        # Actualiza el gráfico según la pestaña activa
+        if self.ui.combbprincipal.currentText() == "Simulation peaks " and self.ui.combbsimu.isEnabled():
+            idx = self.ui.combbsimu.currentIndex()
+            # Vuelve a graficar el perfil seleccionado
+            if hasattr(self, 'simu_connection'):
+                self.simu_connection(idx)  
 
     def on_combobox_changed(self, index):
         # Obtener el texto seleccionado
@@ -771,6 +772,7 @@ class ScatterDialog(QDialog):
             self.ui.combbsimu.setEnabled(True)
             self.ui.buttonTable.setEnabled(True)
             self.ui.buttonGraph.setEnabled(False)
+            self.ui.InputZoom.setEnabled(True)
             
             # Mapear coordenadas si se proporcionan rangos originales
             if self.x is not None and self.y is not None and self.z is not None:
@@ -880,6 +882,7 @@ class ScatterDialog(QDialog):
             self.ui.InputIndez.setEnabled(True)
             self.ui.buttonGraph.setEnabled(True)
             self.ui.buttonTable.setEnabled(False)
+            self.ui.InputZoom.setEnabled(False)
     
             try:
                 # Intentar convertir el texto actual a un entero
