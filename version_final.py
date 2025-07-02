@@ -1157,3 +1157,5 @@ if __name__ == "__main__":
     sys.exit(app.exec_())
 
 #VERSION FINAL  
+#Cambiar a 1 
+#Poner los hptas planos de scatter 
