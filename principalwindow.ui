@@ -156,7 +156,7 @@
   <widget class="QPushButton" name="scatter">
    <property name="geometry">
     <rect>
-     <x>1130</x>
+     <x>940</x>
      <y>810</y>
      <width>201</width>
      <height>41</height>
@@ -228,7 +228,27 @@
     </property>
    </item>
   </widget>
+  <widget class="QPushButton" name="Figure2D">
+   <property name="geometry">
+    <rect>
+     <x>1250</x>
+     <y>810</y>
+     <width>201</width>
+     <height>41</height>
+    </rect>
+   </property>
+   <property name="styleSheet">
+    <string notr="true">QPushButton {
+    background-color: rgb(0, 0, 77);
+    color: white;
+}</string>
+   </property>
+   <property name="text">
+    <string>Scatter 2D figure</string>
+   </property>
+  </widget>
  </widget>
  <resources/>
  <connections/>
 </ui>
+

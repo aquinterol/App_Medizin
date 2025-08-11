@@ -15,6 +15,7 @@ from matplotlib.backends.backend_qt5agg import FigureCanvasQTAgg as FigureCanvas
 from matplotlib.backends.backend_qt5agg import NavigationToolbar2QT
 from matplotlib.figure import Figure
 from scipy.signal import find_peaks
+import matplotlib.pyplot as plt
 
 class VisualizationWidget(HasTraits):
     scene = Instance(MlabSceneModel, ())
@@ -50,6 +51,8 @@ class MyWidget(QWidget):
         self.ui.comboBox.currentIndexChanged.connect(self.plot_volume)
         self.ui.horizontalSlider.setEnabled(False)
         self.ui.horizontalSlider.valueChanged.connect(self.update_slice_position)
+        self.ui.Figure2D.clicked.connect(self.show_planeY0_with_points)
+        self.ui.Figure2D.clicked.connect(self.show_planeX0_with_points)
         
         # Connect the units combobox
         self.ui.comboBox_2.currentIndexChanged.connect(self.update_units)
@@ -551,6 +554,89 @@ class MyWidget(QWidget):
 
         except Exception as e:
             QMessageBox.critical(self, "Error", f"Error plotting volume: {e}")
+
+    def show_planeY0_with_points(self):
+        """
+        Muestra el plano Y=0 en mm, con los puntos scatter en mm.
+        """
+        if self.data is None or self.xs is None or self.ys is None or self.zs is None:
+            QMessageBox.warning(self, "No data", "Cargue datos y puntos de scatter primero.")
+            return
+
+        # Encuentra el índice de Y más cercano a 0
+        if self.y is not None:
+            idx_y0 = (np.abs(self.y)).argmin()
+            y0 = self.y[idx_y0]
+            img = self.data[:, idx_y0, :]
+            # Ejes en mm
+            x_mm = self.x * 1000  # shape (Nx,)
+            z_mm = self.z * 1000  # shape (Nz,)
+            # Scatter en mm
+            xs_mm = self.xs * 1000
+            ys_mm = self.ys * 1000
+            zs_mm = self.zs * 1000
+            # Filtra puntos cerca del plano Y=0
+            tol = np.abs(self.y[1] - self.y[0]) * 1000 / 2 if len(self.y) > 1 else 1e-3
+            mask = np.abs(ys_mm - y0*1000) < tol
+        else:
+            idx_y0 = 0
+            img = self.data[:, idx_y0, :]
+            x_mm = np.arange(self.data.shape[0])
+            z_mm = np.arange(self.data.shape[2])
+            xs_mm = self.xs * 1000
+            ys_mm = self.ys * 1000
+            zs_mm = self.zs * 1000
+            mask = (ys_mm == 0)
+
+        fig, ax = plt.subplots(figsize=(6, 5))
+        # extent=[xmin, xmax, zmin, zmax] para que los ejes estén en mm
+        ax.imshow(img.T, cmap='gray', origin='lower', aspect='auto',
+                extent=[x_mm[0], x_mm[-1], z_mm[0], z_mm[-1]])
+        ax.scatter(xs_mm[mask], zs_mm[mask], c='r', marker='o', label='Scatter')
+        ax.set_title(f' Y={y0*1000:.2f} mm')
+        ax.set_xlabel('X (mm)')
+        ax.set_ylabel('Z (mm)')
+        ax.legend()
+        plt.show()            
+
+    def show_planeX0_with_points(self):
+        """
+        Muestra el plano X=0 en mm, con los puntos scatter en mm.
+        """
+        if self.data is None or self.xs is None or self.ys is None or self.zs is None:
+            QMessageBox.warning(self, "No data", "Cargue datos y puntos de scatter primero.")
+            return
+
+        if self.x is not None:
+            idx_x0 = (np.abs(self.x)).argmin()
+            x0 = self.x[idx_x0]
+            img = self.data[idx_x0, :, :]
+            y_mm = self.y * 1000
+            z_mm = self.z * 1000
+            xs_mm = self.xs * 1000
+            ys_mm = self.ys * 1000
+            zs_mm = self.zs * 1000
+            tol = np.abs(self.x[1] - self.x[0]) * 1000 / 2 if len(self.x) > 1 else 1e-3
+            mask = np.abs(xs_mm - x0*1000) < tol
+        else:
+            idx_x0 = 0
+            img = self.data[idx_x0, :, :]
+            y_mm = np.arange(self.data.shape[1])
+            z_mm = np.arange(self.data.shape[2])
+            xs_mm = self.xs * 1000
+            ys_mm = self.ys * 1000
+            zs_mm = self.zs * 1000
+            mask = (xs_mm == 0)
+
+        fig, ax = plt.subplots(figsize=(6, 5))
+        ax.imshow(img.T, cmap='gray', origin='lower', aspect='auto',
+                extent=[y_mm[0], y_mm[-1], z_mm[0], z_mm[-1]])
+        ax.scatter(ys_mm[mask], zs_mm[mask], c='r', marker='o', label='Scatter')
+        ax.set_title(f'X={x0*1000:.2f} mm ')
+        ax.set_xlabel('Y (mm)')
+        ax.set_ylabel('Z (mm)')
+        ax.legend()
+        plt.show() 
 
     def open_scatter_dialog(self):
         try:
@@ -1157,5 +1243,4 @@ if __name__ == "__main__":
     sys.exit(app.exec_())
 
 #VERSION FINAL  
-#Cambiar a 1 
-#Poner los hptas planos de scatter 
+#Ejes iguales , x 
