@@ -9,6 +9,7 @@ from mayavi import mlab
 from ui_pw import Ui_Widget
 from ui_sw import Ui_Dialog  
 from ui_fwhm import Ui_Form  
+from ui_popup import Ui_Form as Ui_ScatterDialog
 import scipy.io
 import numpy as np
 from matplotlib.backends.backend_qt5agg import FigureCanvasQTAgg as FigureCanvas
@@ -53,6 +54,7 @@ class MyWidget(QWidget):
         self.ui.horizontalSlider.valueChanged.connect(self.update_slice_position)
         self.ui.Figure2D.clicked.connect(self.show_planeY0_with_points)
         self.ui.Figure2D.clicked.connect(self.show_planeX0_with_points)
+        self.ui.Figure2D.clicked.connect(self.show_planes_together)
         
         # Connect the units combobox
         self.ui.comboBox_2.currentIndexChanged.connect(self.update_units)
@@ -555,6 +557,82 @@ class MyWidget(QWidget):
         except Exception as e:
             QMessageBox.critical(self, "Error", f"Error plotting volume: {e}")
 
+
+    def show_planes_together(self):
+        if self.data is None or self.xs is None or self.ys is None or self.zs is None:
+            QMessageBox.warning(self, "No data", "Cargue datos y puntos de scatter primero.")
+            return
+
+        # --- Plano Y=0 ---
+        if self.y is not None:
+            idx_y0 = (np.abs(self.y)).argmin()
+            y0 = self.y[idx_y0]
+            img_y = self.data[:, idx_y0, :]
+            x_mm = self.x * 1000
+            z_mm = self.z * 1000
+            xs_mm = self.xs * 1000
+            ys_mm = self.ys * 1000
+            zs_mm = self.zs * 1000
+            tol = np.abs(self.y[1] - self.y[0]) * 1000 / 2 if len(self.y) > 1 else 1e-3
+            mask_y = np.abs(ys_mm - y0*1000) < tol
+        else:
+            idx_y0 = 0
+            img_y = self.data[:, idx_y0, :]
+            x_mm = np.arange(self.data.shape[0])
+            z_mm = np.arange(self.data.shape[2])
+            xs_mm = self.xs * 1000
+            ys_mm = self.ys * 1000
+            zs_mm = self.zs * 1000
+            mask_y = (ys_mm == 0)
+
+        # --- Plano X=0 ---
+        if self.x is not None:
+            idx_x0 = (np.abs(self.x)).argmin()
+            x0 = self.x[idx_x0]
+            img_x = self.data[idx_x0, :, :]
+            y_mm = self.y * 1000
+            z_mm = self.z * 1000
+            xs_mm = self.xs * 1000
+            ys_mm = self.ys * 1000
+            zs_mm = self.zs * 1000
+            tol = np.abs(self.x[1] - self.x[0]) * 1000 / 2 if len(self.x) > 1 else 1e-3
+            mask_x = np.abs(xs_mm - x0*1000) < tol
+        else:
+            idx_x0 = 0
+            img_x = self.data[idx_x0, :, :]
+            y_mm = np.arange(self.data.shape[1])
+            z_mm = np.arange(self.data.shape[2])
+            xs_mm = self.xs * 1000
+            ys_mm = self.ys * 1000
+            zs_mm = self.zs * 1000
+            mask_x = (xs_mm == 0)
+
+        # --- Plot en la misma figura ---
+        fig, axes = plt.subplots(1, 2, figsize=(12, 5))
+
+        # Plano Y=0
+        axes[0].imshow(img_y.T, cmap='gray', origin='lower', aspect='equal',
+                    extent=[x_mm[0], x_mm[-1], z_mm[0], z_mm[-1]])
+        axes[0].scatter(xs_mm[mask_y], zs_mm[mask_y], c='r', marker='o', label='Scatter')
+        axes[0].set_title(f'Y={y0*1000:.2f} mm')
+        axes[0].set_xlabel('X (mm)')
+        axes[0].set_ylabel('Z (mm)')
+        axes[0].legend()
+        axes[0].set_aspect('equal', adjustable='box')
+
+        # Plano X=0
+        axes[1].imshow(img_x.T, cmap='gray', origin='lower', aspect='equal',
+                    extent=[y_mm[0], y_mm[-1], z_mm[0], z_mm[-1]])
+        axes[1].scatter(ys_mm[mask_x], zs_mm[mask_x], c='r', marker='o', label='Scatter')
+        axes[1].set_title(f'X={x0*1000:.2f} mm')
+        axes[1].set_xlabel('Y (mm)')
+        axes[1].set_ylabel('Z (mm)')
+        axes[1].legend()
+        axes[1].set_aspect('equal', adjustable='box')
+
+        plt.tight_layout()
+        plt.show()            
+
     def show_planeY0_with_points(self):
         """
         Muestra el plano Y=0 en mm, con los puntos scatter en mm.
@@ -596,6 +674,7 @@ class MyWidget(QWidget):
         ax.set_title(f' Y={y0*1000:.2f} mm')
         ax.set_xlabel('X (mm)')
         ax.set_ylabel('Z (mm)')
+        ax.set_aspect('equal', adjustable='box')
         ax.legend()
         plt.show()            
 
@@ -635,6 +714,7 @@ class MyWidget(QWidget):
         ax.set_title(f'X={x0*1000:.2f} mm ')
         ax.set_xlabel('Y (mm)')
         ax.set_ylabel('Z (mm)')
+        ax.set_aspect('equal', adjustable='box')
         ax.legend()
         plt.show() 
 
