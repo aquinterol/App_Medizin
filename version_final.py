@@ -1176,10 +1176,7 @@ class PopupDialog(QDialog):
         self.z = z
         self.xs = xs
         self.ys = ys
-        self.zs = zs       
-
-        self.x_val_mm = float(self.ui.X_value_s.text())
-        self.y_val_mm = float(self.ui.Y_value_s.text())     
+        self.zs = zs           
 
         self.ui.graph_scatter.clicked.connect(self.show_planeY0_with_points)
         self.ui.graph_scatter.clicked.connect(self.show_planeX0_with_points)
@@ -1188,17 +1185,16 @@ class PopupDialog(QDialog):
     def show_planes_together(self):
             # Leer valores ingresados por el usuario
         try:
-            self.x_val_mm = float(self.ui.X_value_s.text())
-            self.y_val_mm = float(self.ui.Y_value_s.text())
+            x_val_str = self.ui.X_value_s.text()
+            y_val_str = self.ui.Y_Value_s.text()
+            if not x_val_str or not y_val_str:
+                QMessageBox.warning(self, "Error", "Por favor ingresa valores para X e Y.")
+                return
+            x_val_mm = float(x_val_str)
+            y_val_mm = float(y_val_str)
         except ValueError:
-            # Si el usuario ingresa algo inválido, puedes mostrar un mensaje o usar un valor por defecto
-            QMessageBox.warning(self, "Error", "Please enter valid numeric values for X and Y.")
-            return
-
-
-        if self.data is None or self.xs is None or self.ys is None or self.zs is None:
-            QMessageBox.warning(self, "No data", "Cargue datos y puntos de scatter primero.")
-            return      
+            QMessageBox.warning(self, "Error", "Por favor ingresa números válidos para X e Y.")
+            return   
 
         # --- Plano Y=0 ---
         if self.y is not None:
@@ -1225,7 +1221,7 @@ class PopupDialog(QDialog):
         # --- Plano X=0 ---
         if self.x is not None:
             idx_x = (np.abs(self.x * 1000 - x_val_mm)).argmin()
-            x = self.x[idx_x]
+            x0 = self.x[idx_x]
             img_x = self.data[idx_x, :, :]
             y_mm = self.y * 1000
             z_mm = self.z * 1000
@@ -1268,7 +1264,9 @@ class PopupDialog(QDialog):
         axes[1].set_aspect('equal', adjustable='box')
 
         plt.tight_layout()
-        plt.show()            
+        plt.show()
+
+        self.accept()            
 
     def show_planeY0_with_points(self):
         """
