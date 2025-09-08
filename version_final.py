@@ -1180,8 +1180,33 @@ class PopupDialog(QDialog):
 
         self.ui.graph_scatter.clicked.connect(self.show_planes_together)
 
+    def get_interpolated_plane(self, data, coords, coord_mm, axis):
+        # Interpolación lineal de plano de imagen
+        coord_m = coord_mm / 1000.0
+        idx = np.searchsorted(coords, coord_m)
+        if idx == 0:
+            idx0, idx1 = 0, 1
+        elif idx >= len(coords):
+            idx0, idx1 = len(coords) - 2, len(coords) - 1
+        else:
+            idx0, idx1 = idx - 1, idx
+        c0, c1 = coords[idx0], coords[idx1]
+        alpha = (coord_m - c0) / (c1 - c0) if (c1 - c0) != 0 else 0
+        if axis == 'x':
+            img0 = data[idx0, :, :]
+            img1 = data[idx1, :, :]
+        elif axis == 'y':
+            img0 = data[:, idx0, :]
+            img1 = data[:, idx1, :]
+        elif axis == 'z':
+            img0 = data[:, :, idx0]
+            img1 = data[:, :, idx1]
+        else:
+            raise ValueError('Eje inválido')
+        img_interp = (1 - alpha) * img0 + alpha * img1
+        return img_interp
+
     def show_planes_together(self):
-            # Leer valores ingresados por el usuario
         try:
             x_val_str = self.ui.X_value_s.text()
             y_val_str = self.ui.Y_Value_s.text()
@@ -1192,70 +1217,68 @@ class PopupDialog(QDialog):
             y_val_mm = float(y_val_str)
         except ValueError:
             QMessageBox.warning(self, "Error", "Por favor ingresa números válidos para X e Y.")
-            return   
+            return
 
-        # --- Plano Y=0 ---
+        # --- Interpolación para plano Y = y_val_mm ---
         if self.y is not None:
-            idx_y = (np.abs(self.y * 1000 - y_val_mm)).argmin()
-            y0 = self.y[idx_y]
-            img_y = self.data[:, idx_y, :]
-            x_mm = self.x * 1000
-            z_mm = self.z * 1000
-            xs_mm = self.xs * 1000
-            ys_mm = self.ys * 1000
-            zs_mm = self.zs * 1000
-            tol = np.abs(self.y[1] - self.y[0]) * 1000 / 2 if len(self.y) > 1 else 1e-3
-            mask_y = np.abs(ys_mm - y0*1000) < tol
+            img_y = self.get_interpolated_plane(
+                self.data, self.y.flatten(), y_val_mm, 'y'
+            )
+            x_mm = self.x.flatten() * 1000
+            z_mm = self.z.flatten() * 1000
         else:
-            idx_y0 = 0
-            img_y = self.data[:, idx_y0, :]
+            img_y = self.data[:, 0, :]
             x_mm = np.arange(self.data.shape[0])
             z_mm = np.arange(self.data.shape[2])
-            xs_mm = self.xs * 1000
-            ys_mm = self.ys * 1000
-            zs_mm = self.zs * 1000
-            mask_y = (ys_mm == 0)
 
-        # --- Plano X=0 ---
+        # --- Interpolación para plano X = x_val_mm ---
         if self.x is not None:
-            idx_x = (np.abs(self.x * 1000 - x_val_mm)).argmin()
-            x0 = self.x[idx_x]
-            img_x = self.data[idx_x, :, :]
-            y_mm = self.y * 1000
-            z_mm = self.z * 1000
-            xs_mm = self.xs * 1000
-            ys_mm = self.ys * 1000
-            zs_mm = self.zs * 1000
-            tol = np.abs(self.x[1] - self.x[0]) * 1000 / 2 if len(self.x) > 1 else 1e-3
-            mask_x = np.abs(xs_mm - x0*1000) < tol
+            img_x = self.get_interpolated_plane(
+                self.data, self.x.flatten(), x_val_mm, 'x'
+            )
+            y_mm = self.y.flatten() * 1000
+            z_mm = self.z.flatten() * 1000
         else:
-            idx_x0 = 0
-            img_x = self.data[idx_x0, :, :]
+            img_x = self.data[0, :, :]
             y_mm = np.arange(self.data.shape[1])
             z_mm = np.arange(self.data.shape[2])
-            xs_mm = self.xs * 1000
-            ys_mm = self.ys * 1000
-            zs_mm = self.zs * 1000
-            mask_x = (xs_mm == 0)
+
+        # --- Mostrar solo scatter cerca del plano ---
+        xs_mm = self.xs.flatten() * 1000 if self.xs is not None else np.array([])
+        ys_mm = self.ys.flatten() * 1000 if self.ys is not None else np.array([])
+        zs_mm = self.zs.flatten() * 1000 if self.zs is not None else np.array([])
+
+        tolerance_mm = 0.5  # tolerancia en milímetros (ajusta según tu resolución)
+
+        # Para el plano Y: solo los puntos con ys_mm cerca de y_val_mm
+        mask_y = np.abs(ys_mm - y_val_mm) < tolerance_mm
+        scatter_y_x = xs_mm[mask_y]
+        scatter_y_z = zs_mm[mask_y]
+
+        # Para el plano X: solo los puntos con xs_mm cerca de x_val_mm
+        mask_x = np.abs(xs_mm - x_val_mm) < tolerance_mm
+        scatter_x_y = ys_mm[mask_x]
+        scatter_x_z = zs_mm[mask_x]
 
         # --- Plot en la misma figura ---
+        import matplotlib.pyplot as plt
         fig, axes = plt.subplots(1, 2, figsize=(12, 5))
 
-        # Plano Y=0
+        # Plano Y = y_val_mm
         axes[0].imshow(img_y.T, cmap='gray', origin='lower', aspect='equal',
                     extent=[x_mm[0], x_mm[-1], z_mm[0], z_mm[-1]])
-        axes[0].scatter(xs_mm[mask_y], zs_mm[mask_y], c='r', marker='o', label='Scatter')
-        axes[0].set_title(f'Y={y0*1000:.2f} mm')
+        axes[0].scatter(scatter_y_x, scatter_y_z, c='r', marker='o', label='Scatter')
+        axes[0].set_title(f'Y={y_val_mm:.2f} mm')
         axes[0].set_xlabel('X (mm)')
         axes[0].set_ylabel('Z (mm)')
         axes[0].legend()
         axes[0].set_aspect('equal', adjustable='box')
 
-        # Plano X=0
+        # Plano X = x_val_mm
         axes[1].imshow(img_x.T, cmap='gray', origin='lower', aspect='equal',
                     extent=[y_mm[0], y_mm[-1], z_mm[0], z_mm[-1]])
-        axes[1].scatter(ys_mm[mask_x], zs_mm[mask_x], c='r', marker='o', label='Scatter')
-        axes[1].set_title(f'X={x0*1000:.2f} mm')
+        axes[1].scatter(scatter_x_y, scatter_x_z, c='r', marker='o', label='Scatter')
+        axes[1].set_title(f'X={x_val_mm:.2f} mm')
         axes[1].set_xlabel('Y (mm)')
         axes[1].set_ylabel('Z (mm)')
         axes[1].legend()
@@ -1263,9 +1286,8 @@ class PopupDialog(QDialog):
 
         plt.tight_layout()
         plt.show()
+        self.accept()
 
-        self.accept()            
-            
 if __name__ == "__main__":
     app = QApplication([])
     window = MyWidget()
