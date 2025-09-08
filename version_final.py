@@ -1248,7 +1248,7 @@ class PopupDialog(QDialog):
         ys_mm = self.ys.flatten() * 1000 if self.ys is not None else np.array([])
         zs_mm = self.zs.flatten() * 1000 if self.zs is not None else np.array([])
 
-        tolerance_mm = 0.5  # tolerancia en milímetros (ajusta según tu resolución)
+        tolerance_mm = 0.5  # tolerancia en milímetros (es la resolucion que estamos usando para proyectar el scatter)
 
         # Para el plano Y: solo los puntos con ys_mm cerca de y_val_mm
         mask_y = np.abs(ys_mm - y_val_mm) < tolerance_mm
