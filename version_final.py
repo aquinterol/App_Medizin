@@ -1286,7 +1286,6 @@ class PopupDialog(QDialog):
 
         plt.tight_layout()
         plt.show()
-        self.accept()
 
 if __name__ == "__main__":
     app = QApplication([])
@@ -1296,4 +1295,7 @@ if __name__ == "__main__":
 
 
 #VERSION FINAL  
-#linear intp. 
+#foto <- opciones de muestra (barra, ejes mostrar 1 o 2, direccion de eje)
+# label del No de Scatter <- Opcion de mostrar
+#integrar el valor del plano en la misma pantalla 
+# mostrar punto o cruz en el scatter 
