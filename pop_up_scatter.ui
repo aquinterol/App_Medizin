@@ -107,10 +107,10 @@
   <widget class="QPushButton" name="graph_scatter">
    <property name="geometry">
     <rect>
-     <x>1160</x>
-     <y>340</y>
-     <width>111</width>
-     <height>31</height>
+     <x>1150</x>
+     <y>280</y>
+     <width>131</width>
+     <height>41</height>
     </rect>
    </property>
    <property name="styleSheet">
@@ -142,9 +142,9 @@
   <widget class="QComboBox" name="boxxoro">
    <property name="geometry">
     <rect>
-     <x>1150</x>
-     <y>270</y>
-     <width>141</width>
+     <x>1100</x>
+     <y>450</y>
+     <width>221</width>
      <height>28</height>
     </rect>
    </property>
@@ -155,27 +155,27 @@
    </item>
    <item>
     <property name="text">
-     <string>Ex</string>
+     <string>Cross</string>
     </property>
    </item>
   </widget>
   <widget class="QLabel" name="label_6">
    <property name="geometry">
     <rect>
-     <x>1090</x>
-     <y>450</y>
+     <x>1140</x>
+     <y>400</y>
      <width>221</width>
      <height>20</height>
     </rect>
    </property>
    <property name="text">
-    <string>Extra options - configuration</string>
+    <string>Graph configuration </string>
    </property>
   </widget>
   <widget class="QCheckBox" name="colorbar">
    <property name="geometry">
     <rect>
-     <x>1120</x>
+     <x>1140</x>
      <y>510</y>
      <width>93</width>
      <height>26</height>
@@ -188,44 +188,69 @@
   <widget class="QCheckBox" name="secondax">
    <property name="geometry">
     <rect>
-     <x>1120</x>
+     <x>1140</x>
      <y>550</y>
      <width>121</width>
      <height>26</height>
     </rect>
    </property>
    <property name="text">
-    <string>Second Ax</string>
+    <string>Second Axis</string>
    </property>
   </widget>
   <widget class="QCheckBox" name="direction">
    <property name="geometry">
     <rect>
-     <x>1120</x>
+     <x>1140</x>
      <y>590</y>
-     <width>151</width>
+     <width>181</width>
      <height>26</height>
     </rect>
    </property>
    <property name="text">
-    <string>Change direction</string>
+    <string>Change axes direction</string>
    </property>
   </widget>
-  <widget class="QCheckBox" name="axlabel">
+  <widget class="QCheckBox" name="scttlabel">
    <property name="geometry">
     <rect>
-     <x>1120</x>
+     <x>1140</x>
      <y>630</y>
      <width>151</width>
      <height>26</height>
     </rect>
    </property>
    <property name="text">
-    <string>Axes label</string>
+    <string>Scatter label</string>
+   </property>
+  </widget>
+  <widget class="QLabel" name="label_7">
+   <property name="geometry">
+    <rect>
+     <x>1090</x>
+     <y>350</y>
+     <width>271</width>
+     <height>20</height>
+    </rect>
+   </property>
+   <property name="text">
+    <string>___________________________________________</string>
+   </property>
+  </widget>
+  <widget class="QLabel" name="label_8">
+   <property name="geometry">
+    <rect>
+     <x>1090</x>
+     <y>700</y>
+     <width>271</width>
+     <height>20</height>
+    </rect>
+   </property>
+   <property name="text">
+    <string>___________________________________________</string>
    </property>
   </widget>
  </widget>
  <resources/>
  <connections/>
 </ui>
-

@@ -1169,6 +1169,11 @@ class PopupDialog(QDialog):
         super().__init__(parent)
         self.ui = Ui_ScatterDialog()
         self.ui.setupUi(self)
+        self.ui.boxxoro.currentIndexChanged.connect(self.show_planes_together)
+        self.ui.colorbar.stateChanged.connect(self.show_planes_together)
+        self.ui.secondax.stateChanged.connect(self.show_planes_together)
+        self.ui.direction.stateChanged.connect(self.show_planes_together)
+        self.ui.scttlabel.stateChanged.connect(self.show_planes_together)
 
         self.data = data
         self.x = x
@@ -1218,6 +1223,14 @@ class PopupDialog(QDialog):
         except ValueError:
             QMessageBox.warning(self, "Error", "Por favor ingresa números válidos para X e Y.")
             return
+        
+        opcion = self.ui.boxxoro.currentText()
+        if opcion == "Circle":
+            marker_style = 'o'
+        elif opcion == "Cross":
+            marker_style = 'x'
+        else:
+            marker_style = 'o'  # Por defecto
 
         # --- Interpolación para plano Y = y_val_mm ---
         if self.y is not None:
@@ -1254,11 +1267,13 @@ class PopupDialog(QDialog):
         mask_y = np.abs(ys_mm - y_val_mm) < tolerance_mm
         scatter_y_x = xs_mm[mask_y]
         scatter_y_z = zs_mm[mask_y]
+        scatter_y_idx = np.where(mask_y)[0]
 
         # Para el plano X: solo los puntos con xs_mm cerca de x_val_mm
         mask_x = np.abs(xs_mm - x_val_mm) < tolerance_mm
         scatter_x_y = ys_mm[mask_x]
         scatter_x_z = zs_mm[mask_x]
+        scatter_x_idx = np.where(mask_x)[0]
 
             # Crear una nueva figura y canvas
         fig = Figure(figsize=(10, 5))
@@ -1268,9 +1283,8 @@ class PopupDialog(QDialog):
         axes = fig.subplots(1, 2)
 
         # Plano Y = y_val_mm
-        axes[0].imshow(img_y.T, cmap='gray', origin='lower', aspect='equal',
-                    extent=[x_mm[0], x_mm[-1], z_mm[0], z_mm[-1]])
-        axes[0].scatter(scatter_y_x, scatter_y_z, c='r', marker='o', label='Scatter')
+        img_plot_0 = axes[0].imshow(img_y.T, cmap='gray', origin='lower', aspect='equal', extent=[x_mm[0], x_mm[-1], z_mm[0], z_mm[-1]])
+        axes[0].scatter(scatter_y_x, scatter_y_z, c='r', marker= marker_style, label='Scatter')
         axes[0].set_title(f'Y={y_val_mm:.2f} mm')
         axes[0].set_xlabel('X (mm)')
         axes[0].set_ylabel('Z (mm)')
@@ -1278,16 +1292,47 @@ class PopupDialog(QDialog):
         axes[0].set_aspect('equal', adjustable='box')
 
         # Plano X = x_val_mm
-        axes[1].imshow(img_x.T, cmap='gray', origin='lower', aspect='equal',
-                    extent=[y_mm[0], y_mm[-1], z_mm[0], z_mm[-1]])
-        axes[1].scatter(scatter_x_y, scatter_x_z, c='r', marker='o', label='Scatter')
+        img_plot_1 =axes[1].imshow(img_x.T, cmap='gray', origin='lower', aspect='equal', extent=[y_mm[0], y_mm[-1], z_mm[0], z_mm[-1]])
+        axes[1].scatter(scatter_x_y, scatter_x_z, c='r', marker= marker_style, label='Scatter')
         axes[1].set_title(f'X={x_val_mm:.2f} mm')
         axes[1].set_xlabel('Y (mm)')
         axes[1].set_ylabel('Z (mm)')
         axes[1].legend()
         axes[1].set_aspect('equal', adjustable='box')
+
+        if self.ui.secondax.isChecked():
+            # Mostrar los valores normales del eje Y
+            axes[1].set_ylabel('Z (mm)')
+            axes[1].tick_params(axis='y', which='both', labelleft=True, left=True)
+        else:
+            # No mostrar nada en el eje Y
+            axes[1].set_ylabel("")
+            axes[1].set_yticks([])  # Elimina los ticks
+            axes[1].tick_params(axis='y', which='both', labelleft=False, left=False)  # Elimina las líneas y las etiquetas
+
+        if self.ui.direction.isChecked():
+            axes[0].set_ylim(z_mm[0], z_mm[-1])
+            axes[1].set_ylim(z_mm[0], z_mm[-1])
+        else:
+            axes[0].set_ylim(z_mm[-1], z_mm[0])
+            axes[1].set_ylim(z_mm[-1], z_mm[0])    
         
+
+        if self.ui.scttlabel.isChecked():
+            # Para el primer scatter
+            for idx, (x, z) in zip(scatter_y_idx, zip(scatter_y_x, scatter_y_z)):
+                axes[0].text(x, z, f"No. {idx + 1}", color='yellow', fontsize=8, ha='center', va='bottom')
+            # Para el segundo scatter
+            for idx, (y, z) in zip(scatter_x_idx, zip(scatter_x_y, scatter_x_z)):
+                axes[1].text(y, z, f"No. {idx + 1}", color='yellow', fontsize=8, ha='center', va='bottom')
+
+        if self.ui.colorbar.isChecked():
+            #fig.colorbar(img_plot_0, ax=axes[0], orientation='vertical')
+            fig.colorbar(img_plot_1, ax=axes[1], orientation='vertical')        
+
+        fig.subplots_adjust(wspace=0.05)
         fig.tight_layout()
+
 
         # Crear un layout vertical para el frame si no existe
         if not hasattr(self, 'frame_layout'):
@@ -1305,6 +1350,7 @@ class PopupDialog(QDialog):
         toolbar = NavigationToolbar2QT(canvas, self.ui.frame)
         self.frame_layout.addWidget(toolbar)
 
+
 if __name__ == "__main__":
     app = QApplication([])
     window = MyWidget()
@@ -1315,5 +1361,5 @@ if __name__ == "__main__":
 #VERSION FINAL  
 #foto <- opciones de muestra (barra, ejes mostrar 1 o 2, direccion de eje)
 # label del No de Scatter <- Opcion de mostrar
-#integrar el valor del plano en la misma pantalla 
+#integrar el valor del plano en la misma pantalla -? AH? 
 # mostrar punto o cruz en el scatter 
