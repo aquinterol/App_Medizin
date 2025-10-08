@@ -139,58 +139,6 @@
     <enum>QFrame::Shadow::Raised</enum>
    </property>
   </widget>
-  <widget class="QRadioButton" name="colobar">
-   <property name="geometry">
-    <rect>
-     <x>1120</x>
-     <y>510</y>
-     <width>112</width>
-     <height>26</height>
-    </rect>
-   </property>
-   <property name="text">
-    <string>Color bar</string>
-   </property>
-  </widget>
-  <widget class="QRadioButton" name="axes">
-   <property name="geometry">
-    <rect>
-     <x>1120</x>
-     <y>550</y>
-     <width>112</width>
-     <height>26</height>
-    </rect>
-   </property>
-   <property name="text">
-    <string>2 Axes</string>
-   </property>
-  </widget>
-  <widget class="QRadioButton" name="axdirection">
-   <property name="geometry">
-    <rect>
-     <x>1120</x>
-     <y>590</y>
-     <width>151</width>
-     <height>26</height>
-    </rect>
-   </property>
-   <property name="text">
-    <string>Axes direcction </string>
-   </property>
-  </widget>
-  <widget class="QRadioButton" name="labelscatr">
-   <property name="geometry">
-    <rect>
-     <x>1120</x>
-     <y>630</y>
-     <width>181</width>
-     <height>26</height>
-    </rect>
-   </property>
-   <property name="text">
-    <string>Label No. Scatter</string>
-   </property>
-  </widget>
   <widget class="QComboBox" name="boxxoro">
    <property name="geometry">
     <rect>
@@ -224,7 +172,60 @@
     <string>Extra options - configuration</string>
    </property>
   </widget>
+  <widget class="QCheckBox" name="colorbar">
+   <property name="geometry">
+    <rect>
+     <x>1120</x>
+     <y>510</y>
+     <width>93</width>
+     <height>26</height>
+    </rect>
+   </property>
+   <property name="text">
+    <string>Color bar</string>
+   </property>
+  </widget>
+  <widget class="QCheckBox" name="secondax">
+   <property name="geometry">
+    <rect>
+     <x>1120</x>
+     <y>550</y>
+     <width>121</width>
+     <height>26</height>
+    </rect>
+   </property>
+   <property name="text">
+    <string>Second Ax</string>
+   </property>
+  </widget>
+  <widget class="QCheckBox" name="direction">
+   <property name="geometry">
+    <rect>
+     <x>1120</x>
+     <y>590</y>
+     <width>151</width>
+     <height>26</height>
+    </rect>
+   </property>
+   <property name="text">
+    <string>Change direction</string>
+   </property>
+  </widget>
+  <widget class="QCheckBox" name="axlabel">
+   <property name="geometry">
+    <rect>
+     <x>1120</x>
+     <y>630</y>
+     <width>151</width>
+     <height>26</height>
+    </rect>
+   </property>
+   <property name="text">
+    <string>Axes label</string>
+   </property>
+  </widget>
  </widget>
  <resources/>
  <connections/>
 </ui>
+

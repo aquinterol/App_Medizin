@@ -1260,9 +1260,12 @@ class PopupDialog(QDialog):
         scatter_x_y = ys_mm[mask_x]
         scatter_x_z = zs_mm[mask_x]
 
-        # --- Plot en la misma figura ---
-        import matplotlib.pyplot as plt
-        fig, axes = plt.subplots(1, 2, figsize=(12, 5))
+            # Crear una nueva figura y canvas
+        fig = Figure(figsize=(10, 5))
+        canvas = FigureCanvas(fig)
+        
+        # Crear los subplots
+        axes = fig.subplots(1, 2)
 
         # Plano Y = y_val_mm
         axes[0].imshow(img_y.T, cmap='gray', origin='lower', aspect='equal',
@@ -1283,9 +1286,24 @@ class PopupDialog(QDialog):
         axes[1].set_ylabel('Z (mm)')
         axes[1].legend()
         axes[1].set_aspect('equal', adjustable='box')
+        
+        fig.tight_layout()
 
-        plt.tight_layout()
-        plt.show()
+        # Crear un layout vertical para el frame si no existe
+        if not hasattr(self, 'frame_layout'):
+            self.frame_layout = QVBoxLayout(self.ui.frame)
+            self.ui.frame.setLayout(self.frame_layout)
+        else:
+            # Limpiar el layout anterior
+            for i in reversed(range(self.frame_layout.count())): 
+                self.frame_layout.itemAt(i).widget().setParent(None)
+
+        # Agregar el canvas al frame
+        self.frame_layout.addWidget(canvas)
+
+        # Opcional: Agregar una barra de herramientas de navegación
+        toolbar = NavigationToolbar2QT(canvas, self.ui.frame)
+        self.frame_layout.addWidget(toolbar)
 
 if __name__ == "__main__":
     app = QApplication([])
