@@ -6,8 +6,8 @@
    <rect>
     <x>0</x>
     <y>0</y>
-    <width>1482</width>
-    <height>771</height>
+    <width>1584</width>
+    <height>887</height>
    </rect>
   </property>
   <property name="minimumSize">
@@ -22,8 +22,8 @@
   <widget class="QComboBox" name="combbprincipal">
    <property name="geometry">
     <rect>
-     <x>490</x>
-     <y>60</y>
+     <x>560</x>
+     <y>70</y>
      <width>471</width>
      <height>28</height>
     </rect>
@@ -48,8 +48,8 @@
   <widget class="QLineEdit" name="InputIndex">
    <property name="geometry">
     <rect>
-     <x>240</x>
-     <y>670</y>
+     <x>290</x>
+     <y>760</y>
      <width>113</width>
      <height>28</height>
     </rect>
@@ -61,8 +61,8 @@
   <widget class="QLabel" name="label_x">
    <property name="geometry">
     <rect>
-     <x>30</x>
-     <y>670</y>
+     <x>80</x>
+     <y>760</y>
      <width>191</width>
      <height>20</height>
     </rect>
@@ -74,8 +74,8 @@
   <widget class="QWidget" name="FrameX" native="true">
    <property name="geometry">
     <rect>
-     <x>10</x>
-     <y>180</y>
+     <x>60</x>
+     <y>270</y>
      <width>481</width>
      <height>471</height>
     </rect>
@@ -84,8 +84,8 @@
   <widget class="QLabel" name="Title">
    <property name="geometry">
     <rect>
-     <x>580</x>
-     <y>10</y>
+     <x>700</x>
+     <y>20</y>
      <width>221</width>
      <height>31</height>
     </rect>
@@ -101,8 +101,8 @@ font: 14pt &quot;Segoe UI&quot;;</string>
   <widget class="QWidget" name="FrameY" native="true">
    <property name="geometry">
     <rect>
-     <x>500</x>
-     <y>180</y>
+     <x>550</x>
+     <y>270</y>
      <width>481</width>
      <height>471</height>
     </rect>
@@ -111,8 +111,8 @@ font: 14pt &quot;Segoe UI&quot;;</string>
   <widget class="QWidget" name="FrameZ" native="true">
    <property name="geometry">
     <rect>
-     <x>990</x>
-     <y>180</y>
+     <x>1040</x>
+     <y>270</y>
      <width>481</width>
      <height>471</height>
     </rect>
@@ -121,7 +121,7 @@ font: 14pt &quot;Segoe UI&quot;;</string>
   <widget class="QComboBox" name="combbsimu">
    <property name="geometry">
     <rect>
-     <x>10</x>
+     <x>570</x>
      <y>120</y>
      <width>451</width>
      <height>28</height>
@@ -131,8 +131,8 @@ font: 14pt &quot;Segoe UI&quot;;</string>
   <widget class="QPushButton" name="buttonGraph">
    <property name="geometry">
     <rect>
-     <x>470</x>
-     <y>730</y>
+     <x>520</x>
+     <y>820</y>
      <width>141</width>
      <height>29</height>
     </rect>
@@ -150,8 +150,8 @@ font: 14pt &quot;Segoe UI&quot;;</string>
   <widget class="QLabel" name="label_y">
    <property name="geometry">
     <rect>
-     <x>570</x>
-     <y>670</y>
+     <x>620</x>
+     <y>760</y>
      <width>191</width>
      <height>20</height>
     </rect>
@@ -163,8 +163,8 @@ font: 14pt &quot;Segoe UI&quot;;</string>
   <widget class="QLineEdit" name="InputIndey">
    <property name="geometry">
     <rect>
-     <x>780</x>
-     <y>670</y>
+     <x>830</x>
+     <y>760</y>
      <width>113</width>
      <height>28</height>
     </rect>
@@ -176,8 +176,8 @@ font: 14pt &quot;Segoe UI&quot;;</string>
   <widget class="QLabel" name="label_z">
    <property name="geometry">
     <rect>
-     <x>1070</x>
-     <y>670</y>
+     <x>1120</x>
+     <y>760</y>
      <width>191</width>
      <height>20</height>
     </rect>
@@ -189,8 +189,8 @@ font: 14pt &quot;Segoe UI&quot;;</string>
   <widget class="QLineEdit" name="InputIndez">
    <property name="geometry">
     <rect>
-     <x>1280</x>
-     <y>670</y>
+     <x>1330</x>
+     <y>760</y>
      <width>113</width>
      <height>28</height>
     </rect>
@@ -202,8 +202,8 @@ font: 14pt &quot;Segoe UI&quot;;</string>
   <widget class="QLineEdit" name="InputZoom">
    <property name="geometry">
     <rect>
-     <x>1260</x>
-     <y>90</y>
+     <x>270</x>
+     <y>170</y>
      <width>113</width>
      <height>28</height>
     </rect>
@@ -215,8 +215,8 @@ font: 14pt &quot;Segoe UI&quot;;</string>
   <widget class="QLabel" name="zoomvalue">
    <property name="geometry">
     <rect>
-     <x>1240</x>
-     <y>60</y>
+     <x>80</x>
+     <y>170</y>
      <width>191</width>
      <height>20</height>
     </rect>
@@ -228,8 +228,8 @@ font: 14pt &quot;Segoe UI&quot;;</string>
   <widget class="QPushButton" name="buttonTable">
    <property name="geometry">
     <rect>
-     <x>900</x>
-     <y>730</y>
+     <x>950</x>
+     <y>820</y>
      <width>141</width>
      <height>29</height>
     </rect>
@@ -244,7 +244,21 @@ font: 14pt &quot;Segoe UI&quot;;</string>
     <string>Table Values</string>
    </property>
   </widget>
+  <widget class="QCheckBox" name="checkBox">
+   <property name="geometry">
+    <rect>
+     <x>80</x>
+     <y>220</y>
+     <width>321</width>
+     <height>26</height>
+    </rect>
+   </property>
+   <property name="text">
+    <string>Normalize figures </string>
+   </property>
+  </widget>
  </widget>
  <resources/>
  <connections/>
 </ui>
+

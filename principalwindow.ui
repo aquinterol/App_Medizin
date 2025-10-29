@@ -156,8 +156,8 @@
   <widget class="QPushButton" name="scatter">
    <property name="geometry">
     <rect>
-     <x>940</x>
-     <y>810</y>
+     <x>860</x>
+     <y>820</y>
      <width>201</width>
      <height>41</height>
     </rect>
@@ -169,7 +169,7 @@
 }</string>
    </property>
    <property name="text">
-    <string>Scatterer positions</string>
+    <string>Scatterer/wire positions</string>
    </property>
   </widget>
   <widget class="QTextBrowser" name="textInfo">
@@ -231,8 +231,8 @@
   <widget class="QPushButton" name="Figure2D">
    <property name="geometry">
     <rect>
-     <x>1250</x>
-     <y>810</y>
+     <x>1100</x>
+     <y>820</y>
      <width>201</width>
      <height>41</height>
     </rect>
@@ -244,11 +244,10 @@
 }</string>
    </property>
    <property name="text">
-    <string>Scatter 2D figure</string>
+    <string>2D cuts</string>
    </property>
   </widget>
  </widget>
  <resources/>
  <connections/>
 </ui>
-

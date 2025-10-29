@@ -84,7 +84,7 @@ class Ui_Widget(object):
         self.tabWidget.addTab(self.visxz, "")
         self.gridLayout.addWidget(self.tabWidget, 0, 1, 1, 1)
         self.scatter = QtWidgets.QPushButton(Widget)
-        self.scatter.setGeometry(QtCore.QRect(940, 810, 201, 41))
+        self.scatter.setGeometry(QtCore.QRect(860, 820, 201, 41))
         self.scatter.setStyleSheet("QPushButton {\n"
 "    background-color: rgb(0, 0, 77);\n"
 "    color: white;\n"
@@ -106,7 +106,7 @@ class Ui_Widget(object):
         self.comboBox_2.addItem("")
         self.comboBox_2.addItem("")
         self.Figure2D = QtWidgets.QPushButton(Widget)
-        self.Figure2D.setGeometry(QtCore.QRect(1250, 810, 201, 41))
+        self.Figure2D.setGeometry(QtCore.QRect(1100, 820, 201, 41))
         self.Figure2D.setStyleSheet("QPushButton {\n"
 "    background-color: rgb(0, 0, 77);\n"
 "    color: white;\n"
@@ -128,8 +128,8 @@ class Ui_Widget(object):
         self.tabWidget.setTabText(self.tabWidget.indexOf(self.visxy), _translate("Widget", "Axis xy"))
         self.tabWidget.setTabText(self.tabWidget.indexOf(self.viszy), _translate("Widget", "Axis yz"))
         self.tabWidget.setTabText(self.tabWidget.indexOf(self.visxz), _translate("Widget", "Axis xz"))
-        self.scatter.setText(_translate("Widget", "Scatterer positions"))
+        self.scatter.setText(_translate("Widget", "Scatterer/wire positions"))
         self.label.setText(_translate("Widget", "Position : "))
         self.comboBox_2.setItemText(0, _translate("Widget", "Milimeters"))
         self.comboBox_2.setItemText(1, _translate("Widget", "Wavelength "))
-        self.Figure2D.setText(_translate("Widget", "Scatter 2D figure"))
+        self.Figure2D.setText(_translate("Widget", "2D cuts"))

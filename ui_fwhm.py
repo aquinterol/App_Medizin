@@ -14,7 +14,7 @@ from PyQt5 import QtCore, QtGui, QtWidgets
 class Ui_Form(object):
     def setupUi(self, Form):
         Form.setObjectName("Form")
-        Form.resize(566, 490)
+        Form.resize(557, 581)
         self.F_title = QtWidgets.QLabel(Form)
         self.F_title.setGeometry(QtCore.QRect(200, 30, 221, 31))
         self.F_title.setStyleSheet("color: rgb(0, 0, 127);\n"
@@ -23,11 +23,11 @@ class Ui_Form(object):
         self.F_title.setObjectName("F_title")
         self.frame = QtWidgets.QFrame(Form)
         self.frame.setGeometry(QtCore.QRect(30, 90, 501, 371))
-        self.frame.setFrameShape(QtWidgets.QFrame.Shape.StyledPanel)
-        self.frame.setFrameShadow(QtWidgets.QFrame.Shadow.Raised)
+        self.frame.setFrameShape(QtWidgets.QFrame.StyledPanel)
+        self.frame.setFrameShadow(QtWidgets.QFrame.Raised)
         self.frame.setObjectName("frame")
         self.tableWidget = QtWidgets.QTableWidget(self.frame)
-        self.tableWidget.setGeometry(QtCore.QRect(0, 0, 501, 371))
+        self.tableWidget.setGeometry(QtCore.QRect(0, 0, 511, 401))
         self.tableWidget.setObjectName("tableWidget")
         self.tableWidget.setColumnCount(4)
         self.tableWidget.setRowCount(0)
@@ -39,6 +39,13 @@ class Ui_Form(object):
         self.tableWidget.setHorizontalHeaderItem(2, item)
         item = QtWidgets.QTableWidgetItem()
         self.tableWidget.setHorizontalHeaderItem(3, item)
+        self.butexport = QtWidgets.QPushButton(Form)
+        self.butexport.setGeometry(QtCore.QRect(210, 520, 141, 29))
+        self.butexport.setStyleSheet("QPushButton {\n"
+"    background-color: rgb(0, 0, 77);\n"
+"    color: white;\n"
+"}")
+        self.butexport.setObjectName("butexport")
 
         self.retranslateUi(Form)
         QtCore.QMetaObject.connectSlotsByName(Form)
@@ -55,3 +62,4 @@ class Ui_Form(object):
         item.setText(_translate("Form", " Y (mm)"))
         item = self.tableWidget.horizontalHeaderItem(3)
         item.setText(_translate("Form", "Z (mm)"))
+        self.butexport.setText(_translate("Form", "Export table "))
