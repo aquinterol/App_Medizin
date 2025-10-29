@@ -1359,7 +1359,3 @@ if __name__ == "__main__":
 
 
 #VERSION FINAL  
-#foto <- opciones de muestra (barra, ejes mostrar 1 o 2, direccion de eje)
-# label del No de Scatter <- Opcion de mostrar
-#integrar el valor del plano en la misma pantalla -? AH? 
-# mostrar punto o cruz en el scatter 
