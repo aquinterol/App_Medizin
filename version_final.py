@@ -94,7 +94,15 @@ class MyWidget(QWidget):
 
     def get_param_value(self, mat_data, field_name):
         try:
-            return mat_data['param'][field_name][0][0][0]# Muestra: array([[['algún_valor']]], dtype=object), muestra algún_valor
+            value = mat_data['param'][field_name][0][0][0]
+            
+            # --- CORRECCIÓN DE TIPO ---
+            # Asegurarse de que el valor sea un escalar de Python
+            if isinstance(value, np.ndarray):
+                value = value.item() # Extrae el escalar de un array (ej. np.array([1.5]) -> 1.5)
+            # --- FIN CORRECCIÓN DE TIPO ---
+
+            return value
         except (KeyError, IndexError):
             return "Parameter wasn't found."    
 
@@ -148,9 +156,9 @@ class MyWidget(QWidget):
             zlabel = 'Z (mm)'
         else:  # Wavelength
             scale_factor = 1 / self.lambda_value if self.lambda_value != 0 else 1
-            xlabel = 'X (λ)'
-            ylabel = 'Y (λ)'
-            zlabel = 'Z (λ)'
+            xlabel = r'X ($\lambda$)' 
+            ylabel = r'Y ($\lambda$)'
+            zlabel = r'Z ($\lambda$)'
 
         try:
             # Update main visualization axes
@@ -197,7 +205,7 @@ class MyWidget(QWidget):
             
             # Preserve the current slider position but update its label with new units
             current_pos = self.ui.horizontalSlider.value()
-            units = 'mm' if selected_unit == "Milimeters" else 'λ'
+            units = 'mm' if selected_unit == "Milimeters" else r'$\lambda$'
             self.update_position_label(current_pos, units)
 
         except Exception as e:
@@ -209,7 +217,7 @@ class MyWidget(QWidget):
         
         # Si no se proporcionan unidades, usar las seleccionadas actualmente
         if units is None:
-            units = 'mm' if self.ui.comboBox_2.currentText() == "Milimeters" else 'λ'
+            units = 'mm' if self.ui.comboBox_2.currentText() == "Milimeters" else r'$\lambda$'
             
         # Calcular el factor de escala basado en las unidades
         if units == 'mm':
@@ -286,7 +294,7 @@ class MyWidget(QWidget):
             return
 
         # Obtener las unidades actuales
-        selected_unit = 'mm' if self.ui.comboBox_2.currentText() == "Milimeters" else 'λ'
+        selected_unit = 'mm' if self.ui.comboBox_2.currentText() == "Milimeters" else r'$\lambda$'
         self.update_position_label(position, selected_unit)
 
         try:
@@ -311,10 +319,16 @@ class MyWidget(QWidget):
             # Si no se proporcionan parámetros, usar valores predeterminados
             if scale_factor is None or xlabel is None or ylabel is None or zlabel is None:
                 selected_unit = self.ui.comboBox_2.currentText()
-                scale_factor = 1000 if selected_unit == "Milimeters" else (1 / self.lambda_value if self.lambda_value != 0 else 1)
-                xlabel = 'X (mm)' if selected_unit == "Milimeters" else 'X (λ)'
-                ylabel = 'Y (mm)' if selected_unit == "Milimeters" else 'Y (λ)'
-                zlabel = 'Z (mm)' if selected_unit == "Milimeters" else 'Z (λ)'
+                if selected_unit == "Milimeters":
+                    scale_factor = 1000
+                    xlabel = 'X (mm)'
+                    ylabel = 'Y (mm)'
+                    zlabel = 'Z (mm)'
+                else:  # Wavelength
+                    scale_factor = 1 / self.lambda_value if self.lambda_value != 0 else 1
+                    xlabel = r'X ($\lambda$)'
+                    ylabel = r'Y ($\lambda$)'
+                    zlabel = r'Z ($\lambda$)'
             
             # Configurar planos de corte en las posiciones actuales del slider o por defecto en el medio
             slice_x = self.ui.horizontalSlider.value() if self.current_tab_index == 1 else self.data.shape[0] // 2
@@ -333,13 +347,12 @@ class MyWidget(QWidget):
                 z_min, z_max = self.z[0], self.z[-1]
                 
                 # Aplicar factor de escala si es necesario
-                if scale_factor != 1.0:
-                    x_min *= scale_factor
-                    x_max *= scale_factor
-                    y_min *= scale_factor
-                    y_max *= scale_factor
-                    z_min *= scale_factor
-                    z_max *= scale_factor
+                x_min *= scale_factor
+                x_max *= scale_factor
+                y_min *= scale_factor
+                y_max *= scale_factor
+                z_min *= scale_factor
+                z_max *= scale_factor
             else:
                 # Fallback a los índices si no hay coordenadas reales
                 x_min, x_max = 0, self.data.shape[0] * scale_factor
@@ -398,7 +411,7 @@ class MyWidget(QWidget):
             self.visualization_xz.scene.camera.azimuth(90)
 
             # Actualizar etiqueta de posición con las unidades correctas
-            units = 'mm' if 'mm' in xlabel else 'λ'
+            units = 'mm' if 'mm' in xlabel else r'$\lambda$'
             self.update_position_label(self.ui.horizontalSlider.value(), units)
 
         except Exception as e:
@@ -424,7 +437,7 @@ class MyWidget(QWidget):
                 
                 # Obtener lambda_value del archivo
                 self.lambda_value = self.get_param_value(mat_data, 'lambda')
-                if isinstance(self.lambda_value, str) or self.lambda_value == 0:
+                if isinstance(self.lambda_value, str) or self.lambda_value == 0 or self.lambda_value is None:
                     self.lambda_value = 1.0  # Valor predeterminado si no se encuentra
                 
                 # Convertir a arrays unidimensionales si es necesario
@@ -446,7 +459,7 @@ class MyWidget(QWidget):
                     self.update_tab_visualizations()
                     
                     # Obtener unidades actuales para la visualización
-                    selected_unit = 'mm' if self.ui.comboBox_2.currentText() == "Milimeters" else 'λ'
+                    selected_unit = 'mm' if self.ui.comboBox_2.currentText() == "Milimeters" else r'$\lambda$'
                     
                     # Añadir información sobre las coordenadas
                     x_info = f"X range: [{self.x[0]:.4f} to {self.x[-1]:.4f}]" if self.x is not None else "X coordinates not found"
@@ -507,9 +520,9 @@ class MyWidget(QWidget):
                 scale_factor = 1000 
             else:
                 scale_factor = 1 / self.lambda_value 
-            xlabel = 'X (mm)' if selected_unit == "Milimeters" else 'X (λ)'
-            ylabel = 'Y (mm)' if selected_unit == "Milimeters" else 'Y (λ)'
-            zlabel = 'Z (mm)' if selected_unit == "Milimeters" else 'Z (λ)'
+            xlabel = 'X (mm)' if selected_unit == "Milimeters" else r'X ($\lambda$)'
+            ylabel = 'Y (mm)' if selected_unit == "Milimeters" else r'Y ($\lambda$)'
+            zlabel = 'Z (mm)' if selected_unit == "Milimeters" else r'Z ($\lambda$)'
             
             if self.x is not None and self.y is not None and self.z is not None and self.scatter_activado is False:
                 x_min, x_max = self.x[0] * scale_factor, self.x[-1] * scale_factor
@@ -580,16 +593,31 @@ class MyWidget(QWidget):
                     self.xs, self.ys, self.zs = arr[:,0], arr[:,1], arr[:,2]
                 else:
                     return
+            
+            if self.data is None:
+                QMessageBox.warning(self, "Error", "No data loaded. Please open a .mat file first.")
+                return
 
             self.scatter_activado = not self.scatter_activado
             self.plot_volume()
-            self.scatter_dialog = ScatterDialog(self.xs, self.ys, self.zs, self.x, self.y, self.z, self.data)
+            
+            # Pasar self.lambda_value al constructor de ScatterDialog
+            self.scatter_dialog = ScatterDialog(
+                self.xs, self.ys, self.zs, 
+                self.x, self.y, self.z, 
+                self.data, 
+                self.lambda_value # <-- Valor lambda añadido
+            )
+            
             self.scatter_dialog.exec_()
         except Exception as e:
             QMessageBox.critical(self, "Error", f"No se pudo abrir el gráfico de dispersión: {str(e)}")
 
     def open_popup_dialog(self):
          try:
+             if self.data is None:
+                 QMessageBox.warning(self, "Error", "No data loaded. Please open a .mat file first.")
+                 return
              dlg = PopupDialog(
                  parent=self,
                  data=self.data,
@@ -601,7 +629,8 @@ class MyWidget(QWidget):
              QMessageBox.critical(self, "Error", f"Error: {str(e)}")    
 
 class ScatterDialog(QDialog):
-    def __init__(self, xs, ys, zs, x=None, y=None, z=None, data= None):
+    # Añadir lambda_value al constructor
+    def __init__(self, xs, ys, zs, x=None, y=None, z=None, data= None, lambda_value=1.0):
         super().__init__()
         
         # Configurar la interfaz del diálogo
@@ -609,18 +638,35 @@ class ScatterDialog(QDialog):
         self.ui.setupUi(self)
         
         # Conectar el CheckBox de normalización
-        # Asumo que tu checkbox se llama 'checkBox' en el .ui
         if hasattr(self.ui, 'checkBox'):
             self.ui.checkBox.stateChanged.connect(self.on_normalize_changed)
         else:
             print("ADVERTENCIA: No se encontró 'self.ui.checkBox'.")
+
+        # Conectar el CheckBox de unidades (checkunits)
+        if hasattr(self.ui, 'checkunits'):
+            self.ui.checkunits.stateChanged.connect(self.on_units_changed)
+        else:
+            print("ADVERTENCIA: No se encontró 'self.ui.checkunits'.")
+        
+        # Almacenar lambda_value
+        self.lambda_value = lambda_value
+        
+        # --- CORRECCIÓN DE TIPO ---
+        # Asegurarse de que lambda_value sea un escalar
+        if isinstance(self.lambda_value, np.ndarray):
+            self.lambda_value = self.lambda_value.item()
+        # --- FIN CORRECCIÓN DE TIPO ---
+
+        if self.lambda_value == 0: # Evitar división por cero
+            self.lambda_value = 1.0
 
         # Almacenar los valores de coordenadas
         self.xs = xs
         self.ys = ys 
         self.zs = zs
        
-        # Almacenar los rangos de coordenadas originales
+        # Almacenar los rangos de coordenadas originales (en metros)
         self.x = x
         self.y = y
         self.z = z
@@ -655,14 +701,12 @@ class ScatterDialog(QDialog):
         # Populate simulation points
         self.populate_simulation_points()
 
-        # --- CORRECCIÓN DE ERROR DE ATRIBUTO ---
         # Inicialización del zoom DEBE ir ANTES de llamar a on_combobox_changed
-        self.zoom_window = 4.0
-        if hasattr(self.ui, 'InputZoom'): # Comprobar si InputZoom existe en la UI
+        self.zoom_window = 4.0 # El zoom siempre se define en mm
+        if hasattr(self.ui, 'InputZoom'): 
             self.ui.InputZoom.editingFinished.connect(self.update_zoom_window)
         else:
             print("ADVERTENCIA: No se encontró 'self.ui.InputZoom'. Usando zoom fijo de 4.0")
-        # --- FIN DE LA CORRECCIÓN ---
 
         # Llamar al método inicialmente para configurar el estado correcto
         self.on_combobox_changed(self.ui.combbprincipal.currentIndex()) 
@@ -675,16 +719,57 @@ class ScatterDialog(QDialog):
         choice = self.ui.combbprincipal.currentText()
         
         if choice == "Simulation peaks ":
-            # Vuelve a ejecutar el gráfico para el punto de simulación actual
             if hasattr(self, 'simu_connection') and self.simu_connection:
                 current_index = self.ui.combbsimu.currentIndex()
                 if current_index >= 0:
                     self.simu_connection(current_index)
                     
         elif choice == "Manual input ":
-            # Vuelve a ejecutar el gráfico manual
+            self.update_manual_graphs()
+            
+    def on_units_changed(self):
+        """
+        Se llama cuando el estado de self.ui.checkunits cambia.
+        Vuelve a dibujar los gráficos actuales con la nueva configuración de unidades.
+        """
+        # El FWHM en la tabla también debe actualizarse
+        if self.ui.combbprincipal.currentText() == "Simulation peaks ":
+            if hasattr(self, 'simu_connection') and self.simu_connection:
+                current_index = self.ui.combbsimu.currentIndex()
+                if current_index >= 0:
+                    self.simu_connection(current_index)
+                    
+        elif self.ui.combbprincipal.currentText() == "Manual input ":
             self.update_manual_graphs()
     
+    def _get_plot_coords_and_labels(self):
+        """
+        Devuelve (x_coords, y_coords, z_coords, xlabel, ylabel, zlabel)
+        basado en el estado de self.ui.checkunits.
+        Los ejes de coordenadas (self.x, self.y, self.z) están en METROS.
+        lambda_value está en METROS.
+        """
+        if hasattr(self.ui, 'checkunits') and self.ui.checkunits.isChecked():
+            # --- Unidades LAMBDA ---
+            # (self.x / self.lambda_value) nos da la coordenada en lambda
+            x_coords = self.x.flatten() / self.lambda_value
+            y_coords = self.y.flatten() / self.lambda_value
+            z_coords = self.z.flatten() / self.lambda_value
+            
+            xlabel = r'X ($\lambda$)'
+            ylabel = r'Y ($\lambda$)'
+            zlabel = r'Z ($\lambda$)'
+        else:
+            # --- Unidades MM (Default) ---
+            x_coords = self.x.flatten() * 1000.0
+            y_coords = self.y.flatten() * 1000.0
+            z_coords = self.z.flatten() * 1000.0
+            xlabel = 'X (mm)'
+            ylabel = 'Y (mm)'
+            zlabel = 'Z (mm)'
+            
+        return x_coords, y_coords, z_coords, xlabel, ylabel, zlabel
+
     def populate_simulation_points(self):
         self.ui.combbsimu.clear()
 
@@ -697,23 +782,27 @@ class ScatterDialog(QDialog):
         # Verificar si xs tiene elementos
         if self.xs and len(self.xs) > 0:
             for index in range(len(self.xs)):
-                print(f"Iteración {index}: {self.xs[index]}")  # Depuración
+                # print(f"Iteración {index}: {self.xs[index]}")  # Depuración
                 point_text = f"Point {index}"
                 self.ui.combbsimu.addItem(point_text)
 
     def on_input_index_changed(self):
         """Actualiza el valor cuando el usuario cambia el texto en InputIndex."""
         try:
-            self.valor_guardado_x = int(self.ui.InputIndex.text().strip())  # Convierte a entero
-            print(f"Nuevo valor guardado: {self.valor_guardado_x}")  # Debug
-            self.valor_guardado_y = int(self.ui.InputIndey.text().strip())  # Convierte a entero
-            print(f"Nuevo valor guardado: {self.valor_guardado_y}")  # Debug
-            self.valor_guardado_z = int(self.ui.InputIndez.text().strip())  # Convierte a entero
-            print(f"Nuevo valor guardado: {self.valor_guardado_z}")  # Debug
+            # El input manual siempre se asume en MILÍMETROS
+            self.valor_guardado_x = float(self.ui.InputIndex.text().strip())
         except ValueError:
-            self.valor_guardado_x = 0  # Si hay error, poner un valor predeterminado
-            self.valor_guardado_y = 0  # Si hay error, poner un valor predeterminado
-            self.valor_guardado_z = 0  # Si hay error, poner un valor predeterminado
+            self.valor_guardado_x = 0.0
+            
+        try:
+            self.valor_guardado_y = float(self.ui.InputIndey.text().strip())
+        except ValueError:
+            self.valor_guardado_y = 0.0
+
+        try:
+            self.valor_guardado_z = float(self.ui.InputIndez.text().strip())
+        except ValueError:
+            self.valor_guardado_z = 0.0
 
     
     def find_fwhm_points(self, profile, axis):
@@ -723,9 +812,10 @@ class ScatterDialog(QDialog):
           - extremo derecho (mm)
           - FWHM (mm)
           - nivel half-power (dB)
+        NOTA: 'axis' DEBE estar en metros. La función devuelve todo en mm.
         """
         profile = np.array(profile)
-        axis = np.array(axis).flatten()
+        axis = np.array(axis).flatten() # Eje en metros
         max_idx = np.argmax(profile)
         max_value = profile[max_idx]
         half_power_db = max_value - 6
@@ -740,26 +830,43 @@ class ScatterDialog(QDialog):
             right_idx += 1
 
         def interpolate_point(idx1, idx2):
-            x1, y1 = axis[idx1], profile[idx1]
-            x2, y2 = axis[idx2], profile[idx2]
+            if idx1 < 0 or idx1 >= len(axis) or idx2 < 0 or idx2 >= len(axis):
+                return axis[max_idx] # Fallback
+            if idx1 >= len(profile) or idx2 >= len(profile):
+                 return axis[max_idx] # Fallback
+                 
+            x1_m, y1 = axis[idx1], profile[idx1] # x1 está en metros
+            x2_m, y2 = axis[idx2], profile[idx2] # x2 está en metros
             if y1 == y2:
-                return x1
-            return x1 + (half_power_db - y1) * (x2 - x1) / (y2 - y1)
+                return x1_m
+            # Interpola para encontrar la coordenada en METROS
+            return x1_m + (half_power_db - y1) * (x2_m - x1_m) / (y2 - y1)
 
         if left_idx > 0:
-            left_x = interpolate_point(left_idx, left_idx - 1)
+            left_x_m = interpolate_point(left_idx, left_idx - 1)
         else:
-            left_x = axis[left_idx]
+            left_x_m = axis[left_idx]
         if right_idx < len(profile) - 1:
-            right_x = interpolate_point(right_idx, right_idx + 1)
+            right_x_m = interpolate_point(right_idx, right_idx + 1)
         else:
-            right_x = axis[right_idx]
-        fwhm = abs(right_x - left_x) * 1000  # mm
-        return left_x * 1000, right_x * 1000, fwhm, half_power_db
+            right_x_m = axis[right_idx]
+            
+        fwhm_m = abs(right_x_m - left_x_m)
+        
+        # Devuelve todo en milímetros
+        return left_x_m * 1000.0, right_x_m * 1000.0, fwhm_m * 1000.0, half_power_db
 
     def calculate_all_fwhms(self):
-        # Calcula FWHM para todos los puntos de simulación usando find_fwhm_points
+        # Calcula FWHM para todos los puntos de simulación
         fwhm_list = []
+        
+        # Determinar el factor de escala y la unidad
+        if hasattr(self.ui, 'checkunits') and self.ui.checkunits.isChecked():
+            # de mm a lambda. (self.lambda_value * 1000.0) es lambda en mm
+            scale_factor = 1.0 / (self.lambda_value * 1000.0) 
+        else:
+            scale_factor = 1.0 # de mm a mm
+            
         for idx in range(len(self.xs_pixels)):
             x_profile = self.data[:, self.ys_pixels[idx], self.zs_pixels[idx]]
             y_profile = self.data[self.xs_pixels[idx], :, self.zs_pixels[idx]]
@@ -771,10 +878,18 @@ class ScatterDialog(QDialog):
                 if y_profile.size > 0: y_profile = y_profile - np.max(y_profile)
                 if z_profile.size > 0: z_profile = z_profile - np.max(z_profile)
 
-            _, _, fwhm_x, _ = self.find_fwhm_points(x_profile, self.x)
-            _, _, fwhm_y, _ = self.find_fwhm_points(y_profile, self.y)
-            _, _, fwhm_z, _ = self.find_fwhm_points(z_profile, self.z)
+            # find_fwhm_points devuelve FWHM en mm
+            _, _, fwhm_x_mm, _ = self.find_fwhm_points(x_profile, self.x)
+            _, _, fwhm_y_mm, _ = self.find_fwhm_points(y_profile, self.y)
+            _, _, fwhm_z_mm, _ = self.find_fwhm_points(z_profile, self.z)
+            
+            # Escalar FWHM según la unidad seleccionada
+            fwhm_x = fwhm_x_mm * scale_factor
+            fwhm_y = fwhm_y_mm * scale_factor
+            fwhm_z = fwhm_z_mm * scale_factor
+            
             fwhm_list.append((idx, fwhm_x, fwhm_y, fwhm_z))
+            
         return fwhm_list     
             
     def setup_matplotlib_canvases(self):
@@ -818,7 +933,7 @@ class ScatterDialog(QDialog):
             valor = float(texto)
             if valor <= 0:
                 raise ValueError
-            self.zoom_window = valor
+            self.zoom_window = valor # Zoom window siempre se guarda en mm
         except ValueError:
             QMessageBox.warning(self, "Wrong number", "The value must be positive.")
             self.ui.InputZoom.setText(str(self.zoom_window))
@@ -864,11 +979,15 @@ class ScatterDialog(QDialog):
             # Mapear coordenadas si se proporcionan rangos originales
             if self.x is not None and self.y is not None and self.z is not None:
                 # Asegurar que xs, ys, zs sean arrays planos (1D)
+                if self.xs is None:
+                    QMessageBox.warning(self, "Error", "Simulation peaks (xs) not found in .mat file.")
+                    return
                 self.xs = np.array(self.xs).flatten()
                 self.ys = np.array(self.ys).flatten()
                 self.zs = np.array(self.zs).flatten()
                 
                 # Calcular los índices de píxeles correspondientes a las coordenadas reales
+                # (self.x, y, z están en metros)
                 self.xs_pixels = np.interp(self.xs, (self.x.min(), self.x.max()), (0, self.x.shape[0] - 1))
                 self.ys_pixels = np.interp(self.ys, (self.y.min(), self.y.max()), (0, self.y.shape[0] - 1))
                 self.zs_pixels = np.interp(self.zs, (self.z.min(), self.z.max()), (0, self.z.shape[0] - 1))
@@ -902,58 +1021,96 @@ class ScatterDialog(QDialog):
                     self.figure_y.clear()
                     self.figure_z.clear()
 
-                    # Convertir coordenadas a milímetros
-                    x_coords_mm = self.x.flatten() * 1000
-                    y_coords_mm = self.y.flatten() * 1000
-                    z_coords_mm = self.z.flatten() * 1000
+                    # Obtener coordenadas y etiquetas según el checkbox de unidades
+                    x_coords, y_coords, z_coords, xlabel, ylabel, zlabel = self._get_plot_coords_and_labels()
+                    
+                    # Calcular FWHM (siempre se calcula en mm por la función, usando ejes en metros)
+                    left_x_mm, right_x_mm, fwhm_x_mm, half_power_x = self.find_fwhm_points(x_profile, self.x)
+                    left_y_mm, right_y_mm, fwhm_y_mm, half_power_y = self.find_fwhm_points(y_profile, self.y)
+                    left_z_mm, right_z_mm, fwhm_z_mm, half_power_z = self.find_fwhm_points(z_profile, self.z)
 
-                    # Gráfico de perfil X
+                    # Determinar el factor de escala y la unidad del título
+                    if hasattr(self.ui, 'checkunits') and self.ui.checkunits.isChecked():
+                        scale_factor = 1.0 / (self.lambda_value * 1000.0) # de mm a lambda
+                        unit_label = r'$\lambda$'
+                    else:
+                        scale_factor = 1.0 # de mm a mm
+                        unit_label = 'mm'
+
+
+                    # --- Gráfico de perfil X ---
                     ax_x = self.figure_x.add_subplot(111)
-                    ax_x.plot(x_coords_mm, x_profile)
-                    ax_x.plot(x_coords_mm[x_max_idx], x_profile[x_max_idx], 'ro')
-                    # Calcular y graficar FWHM (en mm)
-                    left_x, right_x, fwhm_x, half_power_x = self.find_fwhm_points(x_profile, self.x)
-                    ax_x.plot([left_x, right_x], [half_power_x, half_power_x], 'm--')
-                    ax_x.plot([left_x], [half_power_x], 'mv')
-                    ax_x.plot([right_x], [half_power_x], 'mv')
-                    x_center = x_coords_mm[x_max_idx]
-                    ax_x.set_xlim(x_center - self.zoom_window, x_center + self.zoom_window)  # Zoom VARIABLE 
-                    ax_x.set_title(f'X Profile (FWHM = {fwhm_x:.3f} mm)')
-                    ax_x.set_xlabel('X (mm)')
+                    ax_x.plot(x_coords, x_profile) # x_coords ya está en mm o lambda
+                    
+                    # Escalar puntos
+                    peak_x_scaled = x_coords[x_max_idx]
+                    left_x_scaled = left_x_mm * scale_factor
+                    right_x_scaled = right_x_mm * scale_factor
+                    fwhm_x_scaled = fwhm_x_mm * scale_factor
+                    
+                    ax_x.plot(peak_x_scaled, x_profile[x_max_idx], 'ro')
+                    ax_x.plot([left_x_scaled, right_x_scaled], [half_power_x, half_power_x], 'm--')
+                    ax_x.plot([left_x_scaled], [half_power_x], 'mv')
+                    ax_x.plot([right_x_scaled], [half_power_x], 'mv')
+                    
+                    x_center_scaled = x_coords[x_max_idx]
+                    
+                    # El zoom window (self.zoom_window) está en mm. Debo escalarlo.
+                    zoom_window_scaled = self.zoom_window * scale_factor
+                    
+                    ax_x.set_xlim(x_center_scaled - zoom_window_scaled, x_center_scaled + zoom_window_scaled)
+                    ax_x.set_title(f'X Profile (FWHM = {fwhm_x_scaled:.3f} {unit_label})')
+                    ax_x.set_xlabel(xlabel)
                     ax_x.set_ylabel('Amplitude (dB)')
                     ax_x.grid(True)
                     self.canvas_x.draw()
 
-                    # Gráfico de perfil Y
+                    # --- Gráfico de perfil Y ---
                     ax_y = self.figure_y.add_subplot(111)
-                    ax_y.plot(y_coords_mm, y_profile)
-                    ax_y.plot(y_coords_mm[y_max_idx], y_profile[y_max_idx], 'ro')
-                    # Calcular y graficar FWHM (en mm)
-                    left_y, right_y, fwhm_y, half_power_y = self.find_fwhm_points(y_profile, self.y)
-                    ax_y.plot([left_y, right_y], [half_power_y, half_power_y], 'm--')
-                    ax_y.plot([left_y], [half_power_y], 'mv')
-                    ax_y.plot([right_y], [half_power_y], 'mv')
-                    y_center = y_coords_mm[y_max_idx]
-                    ax_y.set_xlim(y_center - self.zoom_window, y_center + self.zoom_window)  # Zoom de ±4mm
-                    ax_y.set_title(f'Y Profile (FWHM = {fwhm_y:.3f} mm)')
-                    ax_y.set_xlabel('Y (mm)')
+                    ax_y.plot(y_coords, y_profile)
+
+                    # Escalar puntos
+                    peak_y_scaled = y_coords[y_max_idx]
+                    left_y_scaled = left_y_mm * scale_factor
+                    right_y_scaled = right_y_mm * scale_factor
+                    fwhm_y_scaled = fwhm_y_mm * scale_factor
+                    
+                    ax_y.plot(peak_y_scaled, y_profile[y_max_idx], 'ro')
+                    ax_y.plot([left_y_scaled, right_y_scaled], [half_power_y, half_power_y], 'm--')
+                    ax_y.plot([left_y_scaled], [half_power_y], 'mv')
+                    ax_y.plot([right_y_scaled], [half_power_y], 'mv')
+                    
+                    y_center_scaled = y_coords[y_max_idx]
+                    zoom_window_scaled = self.zoom_window * scale_factor # Re-calculado por claridad
+                    
+                    ax_y.set_xlim(y_center_scaled - zoom_window_scaled, y_center_scaled + zoom_window_scaled)
+                    ax_y.set_title(f'Y Profile (FWHM = {fwhm_y_scaled:.3f} {unit_label})')
+                    ax_y.set_xlabel(ylabel)
                     ax_y.set_ylabel('Amplitude (dB)')
                     ax_y.grid(True)
                     self.canvas_y.draw()
-
-                    # Gráfico de perfil Z
+                    
+                    # --- Gráfico de perfil Z ---
                     ax_z = self.figure_z.add_subplot(111)
-                    ax_z.plot(z_coords_mm, z_profile)
-                    ax_z.plot(z_coords_mm[z_max_idx], z_profile[z_max_idx], 'ro')
-                    # Calcular y graficar FWHM (en mm)
-                    left_z, right_z, fwhm_z, half_power_z = self.find_fwhm_points(z_profile, self.z)
-                    ax_z.plot([left_z, right_z], [half_power_z, half_power_z], 'm--')
-                    ax_z.plot([left_z], [half_power_z], 'mv')
-                    ax_z.plot([right_z], [half_power_z], 'mv') # Error tipográfico corregido: right_t -> right_z
-                    z_center = z_coords_mm[z_max_idx]
-                    ax_z.set_xlim(z_center - self.zoom_window, z_center + self.zoom_window)  # Zoom de ±4mm
-                    ax_z.set_title(f'Z Profile (FWHM = {fwhm_z:.3f} mm)')
-                    ax_z.set_xlabel('Z (mm)')
+                    ax_z.plot(z_coords, z_profile)
+
+                    # Escalar puntos
+                    peak_z_scaled = z_coords[z_max_idx]
+                    left_z_scaled = left_z_mm * scale_factor
+                    right_z_scaled = right_z_mm * scale_factor
+                    fwhm_z_scaled = fwhm_z_mm * scale_factor
+
+                    ax_z.plot(peak_z_scaled, z_profile[z_max_idx], 'ro')
+                    ax_z.plot([left_z_scaled, right_z_scaled], [half_power_z, half_power_z], 'm--')
+                    ax_z.plot([left_z_scaled], [half_power_z], 'mv')
+                    ax_z.plot([right_z_scaled], [half_power_z], 'mv')
+                    
+                    z_center_scaled = z_coords[z_max_idx]
+                    zoom_window_scaled = self.zoom_window * scale_factor # Re-calculado por claridad
+                    
+                    ax_z.set_xlim(z_center_scaled - zoom_window_scaled, z_center_scaled + zoom_window_scaled)
+                    ax_z.set_title(f'Z Profile (FWHM = {fwhm_z_scaled:.3f} {unit_label})')
+                    ax_z.set_xlabel(zlabel)
                     ax_z.set_ylabel('Amplitude (dB)')
                     ax_z.grid(True)
                     self.canvas_z.draw()
@@ -974,7 +1131,7 @@ class ScatterDialog(QDialog):
                     self.simu_connection(0)
 
             else:
-                QMessageBox.critical(self, "Error", "Coordinate ranges not available")
+                QMessageBox.critical(self, "Error", "Coordinate ranges not available (self.x, self.y, or self.z is None)")
 
         elif choice == "Manual input ":
             self.ui.InputIndex.setEnabled(True)
@@ -985,27 +1142,27 @@ class ScatterDialog(QDialog):
             # InputZoom permanece deshabilitado (configurado al inicio de la función)
     
             try:
-                # Intentar convertir el texto actual a un entero
+                # Intentar convertir el texto actual a float (siempre en mm)
                 current_text_x = self.ui.InputIndex.text().strip()
-                self.valor_guardado_x = int(current_text_x) if current_text_x else 0
-                print(f"Valor guardado en manual input: {self.valor_guardado_x}")
+                self.valor_guardado_x = float(current_text_x) if current_text_x else 0.0
+                
                 current_text_y = self.ui.InputIndey.text().strip()
-                self.valor_guardado_y = int(current_text_y) if current_text_y else 0
-                print(f"Valor guardado en manual input: {self.valor_guardado_y}")
+                self.valor_guardado_y = float(current_text_y) if current_text_y else 0.0
+                
                 current_text_z = self.ui.InputIndez.text().strip()
-                self.valor_guardado_z = int(current_text_z) if current_text_z else 0
-                print(f"Valor guardado en manual input: {self.valor_guardado_z}")
+                self.valor_guardado_z = float(current_text_z) if current_text_z else 0.0
+                
             except ValueError:
                 # Si la conversión falla, establecer un valor predeterminado
-                self.valor_guardado_x = 0
-                self.valor_guardado_y = 0
-                self.valor_guardado_z = 0
+                self.valor_guardado_x = 0.0
+                self.valor_guardado_y = 0.0
+                self.valor_guardado_z = 0.0
                 self.ui.InputIndex.setText('0')
                 self.ui.InputIndey.setText('0')
                 self.ui.InputIndez.setText('0')
             
             # Call the update_manual_graphs method to display initial graphs
-            if hasattr(self, 'xs_pixels') or self.data is not None: # Condición más robusta
+            if self.data is not None and self.x is not None:
                 self.update_manual_graphs()
         
         elif choice == "Find peaks ":
@@ -1016,13 +1173,13 @@ class ScatterDialog(QDialog):
     def update_manual_graphs(self):
         """Update graphs based on the current manual input value"""
         try:
-            # Los valores guardados están en milímetros, necesitamos convertirlos a índices
+            # Los valores guardados están en milímetros
             x_mm = self.valor_guardado_x
             y_mm = self.valor_guardado_y
             z_mm = self.valor_guardado_z
 
             # Verificar que el índice esté dentro de los límites de la matriz
-            if self.data is not None:
+            if self.data is not None and self.x is not None and self.y is not None and self.z is not None:
                 # Obtener los rangos válidos en milímetros
                 x_range_mm = (self.x.flatten().min() * 1000, self.x.flatten().max() * 1000)
                 y_range_mm = (self.y.flatten().min() * 1000, self.y.flatten().max() * 1000)
@@ -1044,9 +1201,10 @@ class ScatterDialog(QDialog):
                     return
 
                 # Si todos los valores están en rango, continuar con la interpolación
-                x_m = x_mm / 1000
-                y_m = y_mm / 1000
-                z_m = z_mm / 1000
+                # Convertir de mm a metros para interpolar con self.x,y,z
+                x_m = x_mm / 1000.0
+                y_m = y_mm / 1000.0
+                z_m = z_mm / 1000.0
 
                 # Interpolar para obtener los índices
                 x_index = int(np.interp(x_m, 
@@ -1073,20 +1231,17 @@ class ScatterDialog(QDialog):
                     if z_profile.size > 0:
                         z_profile = z_profile - np.max(z_profile)
 
-                # Convertir coordenadas a milímetros para la visualización
-                x_coords = self.x.flatten() * 1000
-                y_coords = self.y.flatten() * 1000
-                z_coords = self.z.flatten() * 1000
+                # Obtener coordenadas y etiquetas según el checkbox de unidades
+                x_coords, y_coords, z_coords, xlabel, ylabel, zlabel = self._get_plot_coords_and_labels()
+                unit_label = r'$\lambda$' if (hasattr(self.ui, 'checkunits') and self.ui.checkunits.isChecked()) else 'mm'
 
                 def find_peaks_and_values(profile):
                     max_value = np.max(profile)
                     min_value = np.min(profile)
                     signal_range = max_value - min_value
                     
-                    # Evitar división por cero o prominencia nula
                     if signal_range == 0:
-                        signal_range = 1.0 
-                        min_value = max_value - 1.0
+                        return np.array([np.argmax(profile)]), [profile[np.argmax(profile)]]
 
                     adaptive_prominence = signal_range * 0.1
                     height_threshold = min_value + signal_range * 0.1
@@ -1123,99 +1278,107 @@ class ScatterDialog(QDialog):
                 ax_x = self.figure_x.add_subplot(111)
                 ax_x.plot(x_coords, x_profile)
                 peaks_x, values_x = find_peaks_and_values(x_profile)
-                red_dots_x = ax_x.plot(x_coords[peaks_x], [x_profile[peak] for peak in peaks_x], 'ro', picker=5)[0]
-                for peak, value in zip(peaks_x, values_x):
-                    ax_x.annotate(f'{value:.1f}dB', 
-                                (x_coords[peak], value),
+                
+                # x_coords ya está en la unidad correcta (mm o lambda)
+                scaled_peak_coords_x = x_coords[peaks_x]
+                
+                red_dots_x = ax_x.plot(scaled_peak_coords_x, values_x, 'ro', picker=5)[0]
+                for i in range(len(peaks_x)):
+                    ax_x.annotate(f'{values_x[i]:.1f}dB', 
+                                (scaled_peak_coords_x[i], values_x[i]),
                                 xytext=(0, 10), 
                                 textcoords='offset points',
                                 ha='center',
                                 fontsize=8)
-                ax_x.set_title(f'X Profile at Y={y_mm:.2f}mm, Z={z_mm:.2f}mm')
-                ax_x.set_xlabel('X (mm)')
+                ax_x.set_title(f'X Profile at Y={y_mm:.2f}mm, Z={z_mm:.2f}mm') # El título siempre muestra la coordenada en mm
+                ax_x.set_xlabel(xlabel) # El eje X cambia
                 ax_x.set_ylabel('Amplitude (dB)')
                 ax_x.grid(True)
                 self.canvas_x.draw()
-                # Guardar info para callback
+                
+                # Guardar info para callback (ya está escalada)
                 self._peak_data['x'] = {
-                    'coords': x_coords[peaks_x],
-                    'values': [x_profile[peak] for peak in peaks_x]
+                    'coords': scaled_peak_coords_x,
+                    'values': values_x
                 }
 
                 # Graficar perfil Y con todos los picos
                 ax_y = self.figure_y.add_subplot(111)
                 ax_y.plot(y_coords, y_profile)
                 peaks_y, values_y = find_peaks_and_values(y_profile)
-                red_dots_y = ax_y.plot(y_coords[peaks_y], [y_profile[peak] for peak in peaks_y], 'ro', picker=5)[0]
-                for peak, value in zip(peaks_y, values_y):
-                    ax_y.annotate(f'{value:.1f}dB', 
-                                (y_coords[peak], value),
+                
+                scaled_peak_coords_y = y_coords[peaks_y]
+                
+                red_dots_y = ax_y.plot(scaled_peak_coords_y, values_y, 'ro', picker=5)[0]
+                for i in range(len(peaks_y)):
+                    ax_y.annotate(f'{values_y[i]:.1f}dB', 
+                                (scaled_peak_coords_y[i], values_y[i]),
                                 xytext=(0, 10), 
                                 textcoords='offset points',
                                 ha='center',
                                 fontsize=8)
                 ax_y.set_title(f'Y Profile at X={x_mm:.2f}mm, Z={z_mm:.2f}mm')
-                ax_y.set_xlabel('Y (mm)')
+                ax_y.set_xlabel(ylabel)
                 ax_y.set_ylabel('Amplitude (dB)')
                 ax_y.grid(True)
                 self.canvas_y.draw()
                 self._peak_data['y'] = {
-                    'coords': y_coords[peaks_y],
-                    'values': [y_profile[peak] for peak in peaks_y]
+                    'coords': scaled_peak_coords_y,
+                    'values': values_y
                 }
 
                 # Graficar perfil Z con todos los picos
                 ax_z = self.figure_z.add_subplot(111)
                 ax_z.plot(z_coords, z_profile)
                 peaks_z, values_z = find_peaks_and_values(z_profile)
-                red_dots_z = ax_z.plot(z_coords[peaks_z], [z_profile[peak] for peak in peaks_z], 'ro', picker=5)[0]
-                for peak, value in zip(peaks_z, values_z):
-                    ax_z.annotate(f'{value:.1f}dB', 
-                                (z_coords[peak], value),
+                
+                scaled_peak_coords_z = z_coords[peaks_z]
+
+                red_dots_z = ax_z.plot(scaled_peak_coords_z, values_z, 'ro', picker=5)[0]
+                for i in range(len(peaks_z)):
+                    ax_z.annotate(f'{values_z[i]:.1f}dB', 
+                                (scaled_peak_coords_z[i], values_z[i]),
                                 xytext=(0, 10), 
                                 textcoords='offset points',
                                 ha='center',
                                 fontsize=8)
                 ax_z.set_title(f'Z Profile at X={x_mm:.2f}mm, Y={y_mm:.2f}mm')
-                ax_z.set_xlabel('Z (mm)')
+                ax_z.set_xlabel(zlabel)
                 ax_z.set_ylabel('Amplitude (dB)')
                 ax_z.grid(True)
                 self.canvas_z.draw()
                 self._peak_data['z'] = {
-                    'coords': z_coords[peaks_z],
-                    'values': [z_profile[peak] for peak in peaks_z]
+                    'coords': scaled_peak_coords_z,
+                    'values': values_z
                 }
 
                 # --- ACCIÓN DE CLIC PARA PUNTOS ROJOS ---
                 def on_pick_x(event):
                     if event.artist != red_dots_x:
                         return
-                    mouse_event = event.mouseevent
                     ind = event.ind[0]
                     x_val = self._peak_data['x']['coords'][ind]
                     y_val = self._peak_data['x']['values'][ind]
                     QMessageBox.information(self, "Valor del punto",
-                        f"Perfil X\nX = {x_val:.2f} mm\nAmplitud = {y_val:.2f} dB")
+                        f"Perfil X\nX = {x_val:.2f} {unit_label}\nAmplitud = {y_val:.2f} dB")
 
                 def on_pick_y(event):
                     if event.artist != red_dots_y:
                         return
-                    mouse_event = event.mouseevent
                     ind = event.ind[0]
                     y_val = self._peak_data['y']['coords'][ind]
                     amp_val = self._peak_data['y']['values'][ind]
                     QMessageBox.information(self, "Valor del punto",
-                        f"Perfil Y\nY = {y_val:.2f} mm\nAmplitud = {amp_val:.2f} dB")
+                        f"Perfil Y\nY = {y_val:.2f} {unit_label}\nAmplitud = {amp_val:.2f} dB")
 
                 def on_pick_z(event):
                     if event.artist != red_dots_z:
                         return
-                    mouse_event = event.mouseevent
                     ind = event.ind[0]
                     z_val = self._peak_data['z']['coords'][ind]
                     amp_val = self._peak_data['z']['values'][ind]
                     QMessageBox.information(self, "Valor del punto",
-                        f"Perfil Z\nZ = {z_val:.2f} mm\nAmplitud = {amp_val:.2f} dB")
+                        f"Perfil Z\nZ = {z_val:.2f} {unit_label}\nAmplitud = {amp_val:.2f} dB")
 
                 # Quitar conexiones previas para evitar mensajes duplicados
                 try:
@@ -1227,7 +1390,7 @@ class ScatterDialog(QDialog):
                 except AttributeError:
                     pass
                 try:
-                    self.canvas_z.mpl_disconnect(self.zpick_cid)
+                    self.canvas_z.mpl_disconnect(self._zpick_cid)
                 except AttributeError:
                     pass
                 self._xpick_cid = self.canvas_x.mpl_connect('pick_event', on_pick_x)
@@ -1239,12 +1402,26 @@ class ScatterDialog(QDialog):
 
     def open_table_dialog(self):
         try:
+            if self.xs_pixels is None: # Comprobación
+                 QMessageBox.warning(self, "Error", "No simulation points loaded.")
+                 return
             fwhm_list = self.calculate_all_fwhms()
-            self.dlg = DialogWindow(self)
+            self.dlg = DialogWindow(self) # Asume que la UI (Ui_Form) tiene las cabeceras por defecto
+            
+            # Actualizar cabeceras de la tabla dinámicamente
+            if hasattr(self.ui, 'checkunits') and self.ui.checkunits.isChecked():
+                unit_label = r'($\lambda$)'
+            else:
+                unit_label = '(mm)'
+            
+            self.dlg.ui.tableWidget.horizontalHeaderItem(1).setText(f"FWHM X {unit_label}")
+            self.dlg.ui.tableWidget.horizontalHeaderItem(2).setText(f"FWHM Y {unit_label}")
+            self.dlg.ui.tableWidget.horizontalHeaderItem(3).setText(f"FWHM Z {unit_label}")
+            
             self.dlg.load_fwhm_table(fwhm_list)
             self.dlg.exec_()
         except Exception as e:
-            QMessageBox.critical(self, "Error", f"No se pudo abrir el gráfico de dispersión: {str(e)}")
+            QMessageBox.critical(self, "Error", f"No se pudo abrir la tabla FWHM: {str(e)}")
 
 class DialogWindow(QDialog):
     def __init__(self, parent=None):
@@ -1257,6 +1434,7 @@ class DialogWindow(QDialog):
     def load_fwhm_table(self, fwhm_list):
         """
         fwhm_list: lista de tuplas (punto, fwhm_x, fwhm_y, fwhm_z)
+        Los valores FWHM ya están escalados (mm o lambda)
         """
         self.ui.tableWidget.setRowCount(len(fwhm_list))
         for row, (pt, fx, fy, fz) in enumerate(fwhm_list):
@@ -1269,17 +1447,21 @@ class DialogWindow(QDialog):
     def save_table(self):
         path, _ = QFileDialog.getSaveFileName(self, "Save table", "", "CSV Files (*.csv)")
         if path:
-            with open(path, 'w', encoding='utf-8') as f:
+            with open(path, 'w', encoding='utf-8', newline='') as f: # Añadido newline='' para CSV
+                import csv
+                writer = csv.writer(f)
+                
                 # Escribir encabezado
                 headers = [self.ui.tableWidget.horizontalHeaderItem(i).text() for i in range(self.ui.tableWidget.columnCount())]
-                f.write(','.join(headers) + '\n')
+                writer.writerow(headers)
+                
                 # Escribir filas
                 for row in range(self.ui.tableWidget.rowCount()):
                     row_data = []
                     for col in range(self.ui.tableWidget.columnCount()):
                         item = self.ui.tableWidget.item(row, col)
                         row_data.append(item.text() if item else "")
-                    f.write(','.join(row_data) + '\n')           
+                    writer.writerow(row_data)           
 
 class PopupDialog(QDialog):
     def __init__(self, parent=None, data=None, x=None, y=None, z=None, xs=None, ys=None, zs=None):
@@ -1293,9 +1475,9 @@ class PopupDialog(QDialog):
         self.ui.scttlabel.stateChanged.connect(self.show_planes_together)
 
         self.data = data
-        self.x = x
-        self.y = y
-        self.z = z
+        self.x = x # en metros
+        self.y = y # en metros
+        self.z = z # en metros
         self.xs = xs
         self.ys = ys
         self.zs = zs           
@@ -1304,16 +1486,22 @@ class PopupDialog(QDialog):
 
     def get_interpolated_plane(self, data, coords, coord_mm, axis):
         # Interpolación lineal de plano de imagen
-        coord_m = coord_mm / 1000.0
-        idx = np.searchsorted(coords, coord_m)
+        coord_m = coord_mm / 1000.0 # Convertir mm de entrada a metros
+        idx = np.searchsorted(coords, coord_m) # Coordenadas (self.x/y/z) están en metros
         if idx == 0:
             idx0, idx1 = 0, 1
         elif idx >= len(coords):
             idx0, idx1 = len(coords) - 2, len(coords) - 1
         else:
             idx0, idx1 = idx - 1, idx
+        
+        if idx1 >= len(coords): # Control de borde
+            idx1 = len(coords) - 1
+            idx0 = idx1 - 1
+            
         c0, c1 = coords[idx0], coords[idx1]
         alpha = (coord_m - c0) / (c1 - c0) if (c1 - c0) != 0 else 0
+        
         if axis == 'x':
             img0 = data[idx0, :, :]
             img1 = data[idx1, :, :]
@@ -1341,6 +1529,10 @@ class PopupDialog(QDialog):
             QMessageBox.warning(self, "Error", "Por favor ingresa números válidos para X e Y.")
             return
         
+        if self.data is None or self.x is None or self.y is None or self.z is None:
+            QMessageBox.warning(self, "Error", "Datos no cargados.")
+            return
+
         opcion = self.ui.boxxoro.currentText()
         if opcion == "Circle":
             marker_style = 'o'
@@ -1350,28 +1542,19 @@ class PopupDialog(QDialog):
             marker_style = 'o'  # Por defecto
 
         # --- Interpolación para plano Y = y_val_mm ---
-        if self.y is not None:
-            img_y = self.get_interpolated_plane(
-                self.data, self.y.flatten(), y_val_mm, 'y'
-            )
-            x_mm = self.x.flatten() * 1000
-            z_mm = self.z.flatten() * 1000
-        else:
-            img_y = self.data[:, 0, :]
-            x_mm = np.arange(self.data.shape[0])
-            z_mm = np.arange(self.data.shape[2])
+        img_y = self.get_interpolated_plane(
+            self.data, self.y.flatten(), y_val_mm, 'y'
+        )
+        x_mm = self.x.flatten() * 1000
+        z_mm = self.z.flatten() * 1000
+
 
         # --- Interpolación para plano X = x_val_mm ---
-        if self.x is not None:
-            img_x = self.get_interpolated_plane(
-                self.data, self.x.flatten(), x_val_mm, 'x'
-            )
-            y_mm = self.y.flatten() * 1000
-            z_mm = self.z.flatten() * 1000
-        else:
-            img_x = self.data[0, :, :]
-            y_mm = np.arange(self.data.shape[1])
-            z_mm = np.arange(self.data.shape[2])
+        img_x = self.get_interpolated_plane(
+            self.data, self.x.flatten(), x_val_mm, 'x'
+        )
+        y_mm = self.y.flatten() * 1000
+        # z_mm ya está definido
 
         # --- Mostrar solo scatter cerca del plano ---
         xs_mm = self.xs.flatten() * 1000 if self.xs is not None else np.array([])
@@ -1400,7 +1583,8 @@ class PopupDialog(QDialog):
         axes = fig.subplots(1, 2)
 
         # Plano Y = y_val_mm
-        img_plot_0 = axes[0].imshow(img_y.T, cmap='gray', origin='lower', aspect='equal', extent=[x_mm[0], x_mm[-1], z_mm[0], z_mm[-1]])
+        img_plot_0 = axes[0].imshow(img_y.T, cmap='gray', origin='lower', aspect='auto', 
+                                    extent=[x_mm[0], x_mm[-1], z_mm[0], z_mm[-1]])
         axes[0].scatter(scatter_y_x, scatter_y_z, c='r', marker= marker_style, label='Scatter')
         axes[0].set_title(f'Y={y_val_mm:.2f} mm')
         axes[0].set_xlabel('X (mm)')
@@ -1409,7 +1593,8 @@ class PopupDialog(QDialog):
         axes[0].set_aspect('equal', adjustable='box')
 
         # Plano X = x_val_mm
-        img_plot_1 =axes[1].imshow(img_x.T, cmap='gray', origin='lower', aspect='equal', extent=[y_mm[0], y_mm[-1], z_mm[0], z_mm[-1]])
+        img_plot_1 =axes[1].imshow(img_x.T, cmap='gray', origin='lower', aspect='auto', 
+                                   extent=[y_mm[0], y_mm[-1], z_mm[0], z_mm[-1]])
         axes[1].scatter(scatter_x_y, scatter_x_z, c='r', marker= marker_style, label='Scatter')
         axes[1].set_title(f'X={x_val_mm:.2f} mm')
         axes[1].set_xlabel('Y (mm)')
@@ -1438,34 +1623,40 @@ class PopupDialog(QDialog):
         if self.ui.scttlabel.isChecked():
             # Para el primer scatter
             for idx, (x, z) in zip(scatter_y_idx, zip(scatter_y_x, scatter_y_z)):
-                axes[0].text(x, z, f"No. {idx + 1}", color='yellow', fontsize=8, ha='center', va='bottom')
+                axes[0].text(x, z, f"No. {idx}", color='yellow', fontsize=8, ha='center', va='bottom') # Corregido a idx
             # Para el segundo scatter
             for idx, (y, z) in zip(scatter_x_idx, zip(scatter_x_y, scatter_x_z)):
-                axes[1].text(y, z, f"No. {idx + 1}", color='yellow', fontsize=8, ha='center', va='bottom')
+                axes[1].text(y, z, f"No. {idx}", color='yellow', fontsize=8, ha='center', va='bottom') # Corregido a idx
 
         if self.ui.colorbar.isChecked():
-            #fig.colorbar(img_plot_0, ax=axes[0], orientation='vertical')
-            fig.colorbar(img_plot_1, ax=axes[1], orientation='vertical')        
+            fig.colorbar(img_plot_1, ax=axes[1], orientation='vertical', label='Amplitude (dB)')        
 
         fig.subplots_adjust(wspace=0.05)
         fig.tight_layout()
 
 
-        # Crear un layout vertical para el frame si no existe
-        if not hasattr(self, 'frame_layout'):
+        # Limpiar el layout anterior
+        if hasattr(self, 'frame_layout'):
+            for i in reversed(range(self.frame_layout.count())): 
+                widget = self.frame_layout.itemAt(i).widget()
+                if widget is not None:
+                    widget.setParent(None)
+        else:
+            # Crear un layout vertical para el frame si no existe
             self.frame_layout = QVBoxLayout(self.ui.frame)
             self.ui.frame.setLayout(self.frame_layout)
-        else:
-            # Limpiar el layout anterior
-            for i in reversed(range(self.frame_layout.count())): 
-                self.frame_layout.itemAt(i).widget().setParent(None)
 
         # Agregar el canvas al frame
         self.frame_layout.addWidget(canvas)
 
         # Opcional: Agregar una barra de herramientas de navegación
-        toolbar = NavigationToolbar2QT(canvas, self.ui.frame)
-        self.frame_layout.addWidget(toolbar)
+        if not hasattr(self, 'toolbar'):
+            self.toolbar = NavigationToolbar2QT(canvas, self.ui.frame)
+            self.frame_layout.addWidget(self.toolbar)
+        else:
+            # Si ya existe, solo la agregamos (esto podría ser un error si se duplica)
+            # Mejor limpiar y añadir
+            self.frame_layout.addWidget(self.toolbar)
 
 
 if __name__ == "__main__":
