@@ -22,8 +22,8 @@
   <widget class="QComboBox" name="combbprincipal">
    <property name="geometry">
     <rect>
-     <x>560</x>
-     <y>70</y>
+     <x>170</x>
+     <y>120</y>
      <width>471</width>
      <height>28</height>
     </rect>
@@ -84,15 +84,15 @@
   <widget class="QLabel" name="Title">
    <property name="geometry">
     <rect>
-     <x>700</x>
-     <y>20</y>
+     <x>650</x>
+     <y>50</y>
      <width>221</width>
      <height>31</height>
     </rect>
    </property>
    <property name="styleSheet">
     <string notr="true">color: rgb(0, 0, 127);
-font: 14pt &quot;Segoe UI&quot;;</string>
+font: 16pt &quot;Segoe UI&quot;;</string>
    </property>
    <property name="text">
     <string>Scatterer positions</string>
@@ -121,8 +121,8 @@ font: 14pt &quot;Segoe UI&quot;;</string>
   <widget class="QComboBox" name="combbsimu">
    <property name="geometry">
     <rect>
-     <x>570</x>
-     <y>120</y>
+     <x>170</x>
+     <y>170</y>
      <width>451</width>
      <height>28</height>
     </rect>
@@ -202,10 +202,10 @@ font: 14pt &quot;Segoe UI&quot;;</string>
   <widget class="QLineEdit" name="InputZoom">
    <property name="geometry">
     <rect>
-     <x>270</x>
-     <y>170</y>
-     <width>113</width>
-     <height>28</height>
+     <x>1030</x>
+     <y>131</y>
+     <width>51</width>
+     <height>20</height>
     </rect>
    </property>
    <property name="text">
@@ -215,14 +215,14 @@ font: 14pt &quot;Segoe UI&quot;;</string>
   <widget class="QLabel" name="zoomvalue">
    <property name="geometry">
     <rect>
-     <x>80</x>
-     <y>170</y>
+     <x>880</x>
+     <y>130</y>
      <width>191</width>
      <height>20</height>
     </rect>
    </property>
    <property name="text">
-    <string>Value horizontal zoom </string>
+    <string>Horizontal zoom </string>
    </property>
   </widget>
   <widget class="QPushButton" name="buttonTable">
@@ -247,14 +247,53 @@ font: 14pt &quot;Segoe UI&quot;;</string>
   <widget class="QCheckBox" name="checkBox">
    <property name="geometry">
     <rect>
-     <x>80</x>
-     <y>220</y>
+     <x>880</x>
+     <y>170</y>
      <width>321</width>
      <height>26</height>
     </rect>
    </property>
    <property name="text">
-    <string>Normalize figures </string>
+    <string>Normalise figures </string>
+   </property>
+  </widget>
+  <widget class="QCheckBox" name="checkunits">
+   <property name="geometry">
+    <rect>
+     <x>880</x>
+     <y>210</y>
+     <width>321</width>
+     <height>26</height>
+    </rect>
+   </property>
+   <property name="text">
+    <string>Change units to Lambda </string>
+   </property>
+  </widget>
+  <widget class="QLabel" name="label">
+   <property name="geometry">
+    <rect>
+     <x>400</x>
+     <y>80</y>
+     <width>821</width>
+     <height>20</height>
+    </rect>
+   </property>
+   <property name="text">
+    <string>______________________________________________________________________________________________________________________________</string>
+   </property>
+  </widget>
+  <widget class="QLabel" name="label_2">
+   <property name="geometry">
+    <rect>
+     <x>700</x>
+     <y>150</y>
+     <width>63</width>
+     <height>161</height>
+    </rect>
+   </property>
+   <property name="text">
+    <string/>
    </property>
   </widget>
  </widget>
