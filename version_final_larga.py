@@ -1,4 +1,5 @@
 import sys
+import traceback
 from PyQt5.QtWidgets import QApplication, QWidget, QFileDialog, QVBoxLayout, QDialog, QMessageBox, QTableWidgetItem
 from mayavi.core.ui.api import MayaviScene
 from mayavi.tools.mlab_scene_model import MlabSceneModel
@@ -54,7 +55,6 @@ class MyWidget(QWidget):
         self.ui.horizontalSlider.valueChanged.connect(self.update_slice_position)
         self.ui.Figure2D.clicked.connect(self.open_popup_dialog)
        
-        
         # Connect the units combobox
         self.ui.comboBox_2.currentIndexChanged.connect(self.update_units)
 
@@ -534,9 +534,15 @@ class MyWidget(QWidget):
                 # Mapear las coordenadas reales (xs, ys, zs) a índices de píxeles
                 if self.x is not None and self.y is not None and self.z is not None:
                     # Calcular los índices de píxeles correspondientes a las coordenadas reales
-                    x_indices = np.interp(self.xs, (self.x.min(), self.x.max()), (0, self.data.shape[0] - 1))
-                    y_indices = np.interp(self.ys, (self.y.min(), self.y.max()), (0, self.data.shape[1] - 1))
-                    z_indices = np.interp(self.zs, (self.z.min(), self.z.max()), (0, self.data.shape[2] - 1))
+                    try:
+                        x_indices = np.interp(self.xs, (np.min(self.x), np.max(self.x)), (0, self.data.shape[0] - 1))
+                        y_indices = np.interp(self.ys, (np.min(self.y), np.max(self.y)), (0, self.data.shape[1] - 1))
+                        z_indices = np.interp(self.zs, (np.min(self.z), np.max(self.z)), (0, self.data.shape[2] - 1))
+                    except Exception:
+                        # Fallback: use raw arrays (may be indices already)
+                        x_indices = self.xs
+                        y_indices = self.ys
+                        z_indices = self.zs
                 else:
                     # Si no hay coordenadas reales, usar los índices directamente
                     x_indices = self.xs
@@ -567,38 +573,57 @@ class MyWidget(QWidget):
             )
             if reply == QMessageBox.Yes:
                 file_path, _ = QFileDialog.getOpenFileName(
-                    self, "Select file", "", 
+                    self, "Select file", "",
                     "Archivos CSV (*.csv);;Archivos de texto (*.txt);;Todos los archivos (*)"
                 )
                 if file_path:
                     import numpy as np
-                    arr = np.loadtxt(file_path, delimiter=',')
-                    if arr.shape[1] != 3:
-                        QMessageBox.critical(self, "Error", "File must have tree columns (xs, ys, zs).")
+                    try:
+                        arr = np.loadtxt(file_path, delimiter=',')
+                    except Exception as e:
+                        QMessageBox.critical(self, "Error", f"Error reading file: {e}")
                         return
-                    # Asigna directamente a los atributos de la clase
-                    self.xs, self.ys, self.zs = arr[:,0], arr[:,1], arr[:,2]
+
+                    # Normalize shapes: accept single row [x,y,z], Nx3, or 3xN (transpose)
+                    if arr.ndim == 1:
+                        if arr.size != 3:
+                            QMessageBox.critical(self, "Error", "File must contain 3 values (xs, ys, zs).")
+                            return
+                        arr = arr.reshape((1, 3))
+                    if arr.ndim == 2 and arr.shape[1] != 3:
+                        # try transpose if shape is (3, N)
+                        if arr.shape[0] == 3 and arr.shape[1] != 3:
+                            arr = arr.T
+                        else:
+                            QMessageBox.critical(self, "Error", "File must have three columns (xs, ys, zs).")
+                            return
+
+                    # Assign safely
+                    self.xs, self.ys, self.zs = arr[:, 0].copy(), arr[:, 1].copy(), arr[:, 2].copy()
                 else:
                     return
 
+            # Toggle scatter flag and plot
             self.scatter_activado = not self.scatter_activado
             self.plot_volume()
+
+            # Ensure we pass sanitized arrays into the dialog (dialog will sanitize too)
             self.scatter_dialog = ScatterDialog(self.xs, self.ys, self.zs, self.x, self.y, self.z, self.data)
             self.scatter_dialog.exec_()
         except Exception as e:
             QMessageBox.critical(self, "Error", f"No se pudo abrir el gráfico de dispersión: {str(e)}")
 
     def open_popup_dialog(self):
-         try:
-             dlg = PopupDialog(
-                 parent=self,
-                 data=self.data,
-                 x=self.x, y=self.y, z=self.z,
-                 xs=self.xs, ys=self.ys, zs=self.zs,
-             )
-             dlg.exec_()        
-         except Exception as e:
-             QMessageBox.critical(self, "Error", f"Error: {str(e)}")    
+        try:
+            dlg = PopupDialog(
+                parent=self,
+                data=self.data,
+                x=self.x, y=self.y, z=self.z,
+                xs=self.xs, ys=self.ys, zs=self.zs,
+            )
+            dlg.exec_()
+        except Exception as e:
+            QMessageBox.critical(self, "Error", f"Error abriendo popup: {e}")
 
 class ScatterDialog(QDialog):
     def __init__(self, xs, ys, zs, x=None, y=None, z=None, data= None):
@@ -607,13 +632,6 @@ class ScatterDialog(QDialog):
         # Configurar la interfaz del diálogo
         self.ui = Ui_Dialog()
         self.ui.setupUi(self)
-        
-        # Conectar el CheckBox de normalización
-        # Asumo que tu checkbox se llama 'checkBox' en el .ui
-        if hasattr(self.ui, 'checkBox'):
-            self.ui.checkBox.stateChanged.connect(self.on_normalize_changed)
-        else:
-            print("ADVERTENCIA: No se encontró 'self.ui.checkBox'.")
 
         # Almacenar los valores de coordenadas
         self.xs = xs
@@ -630,6 +648,18 @@ class ScatterDialog(QDialog):
         self.mi_lineedit = self.ui.InputIndex
         self.valor_guardado = 0 
 
+        # Flag de normalización (si True, el máximo del perfil queda en 0 dB)
+        self.normalize = False
+        # Conectar el checkBox (Normalizar) si existe en la UI
+        try:
+            self.ui.checkBox.stateChanged.connect(self.on_normalize_changed)
+        except Exception:
+            # Si la UI no tiene checkBox, evitar que falle (pero notificar)
+            print("Warning: checkBox not found in Ui_Dialog. Normalization disabled.")
+
+        # Sanitize point arrays (ensure 1D numpy arrays, same length)
+        self._sanitize_point_arrays()
+
         # Configurar estado inicial de los controles
         self.ui.combbsimu.setEnabled(False)
         self.ui.InputIndex.setEnabled(False)
@@ -637,6 +667,7 @@ class ScatterDialog(QDialog):
         self.ui.buttonGraph.setEnabled(False)
         self.ui.buttonTable.clicked.connect(self.open_table_dialog)
        
+
         # Configurar los lienzos de Matplotlib ANTES de conectar señales
         self.setup_matplotlib_canvases()
 
@@ -655,51 +686,74 @@ class ScatterDialog(QDialog):
         # Populate simulation points
         self.populate_simulation_points()
 
-        # --- CORRECCIÓN DE ERROR DE ATRIBUTO ---
-        # Inicialización del zoom DEBE ir ANTES de llamar a on_combobox_changed
-        self.zoom_window = 4.0
-        if hasattr(self.ui, 'InputZoom'): # Comprobar si InputZoom existe en la UI
-            self.ui.InputZoom.editingFinished.connect(self.update_zoom_window)
-        else:
-            print("ADVERTENCIA: No se encontró 'self.ui.InputZoom'. Usando zoom fijo de 4.0")
-        # --- FIN DE LA CORRECCIÓN ---
-
         # Llamar al método inicialmente para configurar el estado correcto
         self.on_combobox_changed(self.ui.combbprincipal.currentIndex()) 
 
-    def on_normalize_changed(self):
-        """
-        Se llama cuando el estado de self.ui.checkBox cambia.
-        Vuelve a dibujar los gráficos actuales con la nueva configuración de normalización.
-        """
-        choice = self.ui.combbprincipal.currentText()
-        
-        if choice == "Simulation peaks ":
-            # Vuelve a ejecutar el gráfico para el punto de simulación actual
-            if hasattr(self, 'simu_connection') and self.simu_connection:
-                current_index = self.ui.combbsimu.currentIndex()
-                if current_index >= 0:
-                    self.simu_connection(current_index)
-                    
-        elif choice == "Manual input ":
-            # Vuelve a ejecutar el gráfico manual
-            self.update_manual_graphs()
+        #Inicialización del zoom
+        self.zoom_window = 4.0
+        self.ui.InputZoom.editingFinished.connect(self.update_zoom_window)
     
+    def _sanitize_point_arrays(self):
+        """
+        Ensure self.xs, self.ys, self.zs are 1D numpy arrays (or empty arrays).
+        Keep them the same length by truncating to the minimum length.
+        """
+        try:
+            # Convert to numpy arrays (1D)
+            xs_arr = np.asarray(self.xs).ravel() if self.xs is not None else np.array([])
+            ys_arr = np.asarray(self.ys).ravel() if self.ys is not None else np.array([])
+            zs_arr = np.asarray(self.zs).ravel() if self.zs is not None else np.array([])
+
+            # If any are empty, keep them as empty arrays
+            if xs_arr.size == 0 or ys_arr.size == 0 or zs_arr.size == 0:
+                self.xs = xs_arr if xs_arr.size > 0 else np.array([])
+                self.ys = ys_arr if ys_arr.size > 0 else np.array([])
+                self.zs = zs_arr if zs_arr.size > 0 else np.array([])
+                return
+
+            n = int(min(xs_arr.size, ys_arr.size, zs_arr.size))
+            if n <= 0:
+                self.xs = np.array([])
+                self.ys = np.array([])
+                self.zs = np.array([])
+                return
+
+            self.xs = xs_arr[:n]
+            self.ys = ys_arr[:n]
+            self.zs = zs_arr[:n]
+        except Exception:
+            # In case of unexpected types, fallback to empty arrays
+            try:
+                self.xs = np.array(self.xs).ravel()
+            except Exception:
+                self.xs = np.array([])
+            try:
+                self.ys = np.array(self.ys).ravel()
+            except Exception:
+                self.ys = np.array([])
+            try:
+                self.zs = np.array(self.zs).ravel()
+            except Exception:
+                self.zs = np.array([])
+
     def populate_simulation_points(self):
         self.ui.combbsimu.clear()
 
-        # Desanidar xs si es un array de NumPy con una sola fila
-        if isinstance(self.xs, np.ndarray):
-            self.xs = self.xs.flatten().tolist()
-        elif isinstance(self.xs, list) and len(self.xs) == 1 and isinstance(self.xs[0], (list, np.ndarray)):
-            self.xs = list(self.xs[0])  # Extraer lista interna si está anidada
-   
-        # Verificar si xs tiene elementos
-        if self.xs and len(self.xs) > 0:
-            for index in range(len(self.xs)):
-                print(f"Iteración {index}: {self.xs[index]}")  # Depuración
-                point_text = f"Point {index}"
-                self.ui.combbsimu.addItem(point_text)
+        # Re-sanitize in case arrays were updated
+        self._sanitize_point_arrays()
+
+        n_xs = 0 if self.xs is None else int(np.asarray(self.xs).size)
+        n_ys = 0 if self.ys is None else int(np.asarray(self.ys).size)
+        n_zs = 0 if self.zs is None else int(np.asarray(self.zs).size)
+
+        # If any dimension has zero points, nothing to populate
+        if n_xs == 0 or n_ys == 0 or n_zs == 0:
+            return
+
+        n = min(n_xs, n_ys, n_zs)
+        for index in range(n):
+            point_text = f"Point {index}"
+            self.ui.combbsimu.addItem(point_text)
 
     def on_input_index_changed(self):
         """Actualiza el valor cuando el usuario cambia el texto en InputIndex."""
@@ -715,7 +769,39 @@ class ScatterDialog(QDialog):
             self.valor_guardado_y = 0  # Si hay error, poner un valor predeterminado
             self.valor_guardado_z = 0  # Si hay error, poner un valor predeterminado
 
-    
+    def on_normalize_changed(self, state):
+        """Handler del checkBox 'Normalizar'. Refresca la gráfica activa."""
+        self.normalize = bool(state)
+        choice = self.ui.combbprincipal.currentText()
+        if choice == "Simulation peaks " and self.ui.combbsimu.isEnabled():
+            # refrescar el perfil seleccionado (si hay conexión)
+            if self.simu_connection is not None:
+                try:
+                    self.simu_connection(self.ui.combbsimu.currentIndex())
+                except Exception:
+                    pass
+        elif choice == "Manual input ":
+            # redraw manual graphs
+            try:
+                self.update_manual_graphs()
+            except Exception:
+                pass
+
+    def normalize_db(self, profile):
+        """Normalización en dB: devuelve profile - max(profile).
+           Maneja NaN/Inf de forma segura.
+        """
+        arr = np.asarray(profile, dtype=float)
+        if arr.size == 0:
+            return arr
+        # Si todo es no finito (NaN/Inf), devolver tal cual
+        if np.all(~np.isfinite(arr)):
+            return arr
+        maxv = np.nanmax(arr)
+        if not np.isfinite(maxv):
+            return arr
+        return arr - maxv
+
     def find_fwhm_points(self, profile, axis):
         """
         Devuelve:
@@ -764,13 +850,6 @@ class ScatterDialog(QDialog):
             x_profile = self.data[:, self.ys_pixels[idx], self.zs_pixels[idx]]
             y_profile = self.data[self.xs_pixels[idx], :, self.zs_pixels[idx]]
             z_profile = self.data[self.xs_pixels[idx], self.ys_pixels[idx], :]
-            
-            # Aplicar normalización si es necesario ANTES de calcular FWHM
-            if hasattr(self.ui, 'checkBox') and self.ui.checkBox.isChecked():
-                if x_profile.size > 0: x_profile = x_profile - np.max(x_profile)
-                if y_profile.size > 0: y_profile = y_profile - np.max(y_profile)
-                if z_profile.size > 0: z_profile = z_profile - np.max(z_profile)
-
             _, _, fwhm_x, _ = self.find_fwhm_points(x_profile, self.x)
             _, _, fwhm_y, _ = self.find_fwhm_points(y_profile, self.y)
             _, _, fwhm_z, _ = self.find_fwhm_points(z_profile, self.z)
@@ -809,10 +888,6 @@ class ScatterDialog(QDialog):
         self.figure_z.set_tight_layout(True)
         
     def update_zoom_window(self):
-        # Asegurarse de que InputZoom existe antes de usarlo
-        if not hasattr(self.ui, 'InputZoom'):
-            return
-            
         texto = self.ui.InputZoom.text().strip()
         try:
             valor = float(texto)
@@ -845,37 +920,44 @@ class ScatterDialog(QDialog):
         self.ui.InputIndex.setEnabled(False)
         self.ui.InputIndey.setEnabled(False)
         self.ui.InputIndez.setEnabled(False)
-        
-        # Deshabilitar InputZoom si existe
-        if hasattr(self.ui, 'InputZoom'):
-            self.ui.InputZoom.setEnabled(False)
-
 
         # Habilitar controles basados en la selección
         if choice == "Simulation peaks ":
             self.ui.combbsimu.setEnabled(True)
             self.ui.buttonTable.setEnabled(True)
             self.ui.buttonGraph.setEnabled(False)
-            
-            # Habilitar InputZoom si existe
-            if hasattr(self.ui, 'InputZoom'):
-                self.ui.InputZoom.setEnabled(True)
+            self.ui.InputZoom.setEnabled(True)
             
             # Mapear coordenadas si se proporcionan rangos originales
             if self.x is not None and self.y is not None and self.z is not None:
-                # Asegurar que xs, ys, zs sean arrays planos (1D)
-                self.xs = np.array(self.xs).flatten()
-                self.ys = np.array(self.ys).flatten()
-                self.zs = np.array(self.zs).flatten()
-                
-                # Calcular los índices de píxeles correspondientes a las coordenadas reales
-                self.xs_pixels = np.interp(self.xs, (self.x.min(), self.x.max()), (0, self.x.shape[0] - 1))
-                self.ys_pixels = np.interp(self.ys, (self.y.min(), self.y.max()), (0, self.y.shape[0] - 1))
-                self.zs_pixels = np.interp(self.zs, (self.z.min(), self.z.max()), (0, self.z.shape[0] - 1))
-                
-                self.xs_pixels = np.round(self.xs_pixels).astype(int)
-                self.ys_pixels = np.round(self.ys_pixels).astype(int)
-                self.zs_pixels = np.round(self.zs_pixels).astype(int)
+                # Ensure xs/ys/zs are 1D numpy arrays and have matching length
+                xs_arr = np.asarray(self.xs).ravel() if self.xs is not None else np.array([])
+                ys_arr = np.asarray(self.ys).ravel() if self.ys is not None else np.array([])
+                zs_arr = np.asarray(self.zs).ravel() if self.zs is not None else np.array([])
+
+                if xs_arr.size == 0 or ys_arr.size == 0 or zs_arr.size == 0:
+                    QMessageBox.critical(self, "Error", "No simulation points available")
+                    return
+
+                # Truncate to minimum common length
+                n = int(min(xs_arr.size, ys_arr.size, zs_arr.size))
+                xs_arr = xs_arr[:n]
+                ys_arr = ys_arr[:n]
+                zs_arr = zs_arr[:n]
+
+                # Map real coordinates to pixel indices safely
+                try:
+                    self.xs_pixels = np.interp(xs_arr, (np.min(self.x), np.max(self.x)), (0, self.data.shape[0] - 1))
+                    self.ys_pixels = np.interp(ys_arr, (np.min(self.y), np.max(self.y)), (0, self.data.shape[1] - 1))
+                    self.zs_pixels = np.interp(zs_arr, (np.min(self.z), np.max(self.z)), (0, self.data.shape[2] - 1))
+                except Exception as e:
+                    QMessageBox.critical(self, "Error", f"Error mapping simulation points to pixels: {e}")
+                    return
+
+                # Round and clip to valid indices
+                self.xs_pixels = np.clip(np.round(self.xs_pixels).astype(int), 0, self.data.shape[0] - 1)
+                self.ys_pixels = np.clip(np.round(self.ys_pixels).astype(int), 0, self.data.shape[1] - 1)
+                self.zs_pixels = np.clip(np.round(self.zs_pixels).astype(int), 0, self.data.shape[2] - 1)
 
                 def update_profile_plots(point_index):
                     # Graficar perfiles en X, Y, Z
@@ -883,19 +965,20 @@ class ScatterDialog(QDialog):
                     y_profile = self.data[self.xs_pixels[point_index], :, self.zs_pixels[point_index]]
                     z_profile = self.data[self.xs_pixels[point_index], self.ys_pixels[point_index], :]
 
-                    # Normalizar si el checkbox está activado
-                    if hasattr(self.ui, 'checkBox') and self.ui.checkBox.isChecked():
-                        if x_profile.size > 0:
-                            x_profile = x_profile - np.max(x_profile)
-                        if y_profile.size > 0:
-                            y_profile = y_profile - np.max(y_profile)
-                        if z_profile.size > 0:
-                            z_profile = z_profile - np.max(z_profile)
+                    # Aplicar normalización en dB si está activada (los datos ya están en dB)
+                    if self.normalize:
+                        x_plot = self.normalize_db(x_profile)
+                        y_plot = self.normalize_db(y_profile)
+                        z_plot = self.normalize_db(z_profile)
+                    else:
+                        x_plot = x_profile
+                        y_plot = y_profile
+                        z_plot = z_profile
 
-                    # Encontrar los picos máximos
-                    x_max_idx = np.argmax(x_profile)
-                    y_max_idx = np.argmax(y_profile)
-                    z_max_idx = np.argmax(z_profile)
+                    # Encontrar los picos máximos (índices)
+                    x_max_idx = np.argmax(x_plot) if x_plot.size > 0 else 0
+                    y_max_idx = np.argmax(y_plot) if y_plot.size > 0 else 0
+                    z_max_idx = np.argmax(z_plot) if z_plot.size > 0 else 0
 
                     # Limpiar figuras anteriores
                     self.figure_x.clear()
@@ -909,10 +992,10 @@ class ScatterDialog(QDialog):
 
                     # Gráfico de perfil X
                     ax_x = self.figure_x.add_subplot(111)
-                    ax_x.plot(x_coords_mm, x_profile)
-                    ax_x.plot(x_coords_mm[x_max_idx], x_profile[x_max_idx], 'ro')
+                    ax_x.plot(x_coords_mm, x_plot)
+                    ax_x.plot(x_coords_mm[x_max_idx], x_plot[x_max_idx], 'ro')
                     # Calcular y graficar FWHM (en mm)
-                    left_x, right_x, fwhm_x, half_power_x = self.find_fwhm_points(x_profile, self.x)
+                    left_x, right_x, fwhm_x, half_power_x = self.find_fwhm_points(x_plot, self.x)
                     ax_x.plot([left_x, right_x], [half_power_x, half_power_x], 'm--')
                     ax_x.plot([left_x], [half_power_x], 'mv')
                     ax_x.plot([right_x], [half_power_x], 'mv')
@@ -926,10 +1009,10 @@ class ScatterDialog(QDialog):
 
                     # Gráfico de perfil Y
                     ax_y = self.figure_y.add_subplot(111)
-                    ax_y.plot(y_coords_mm, y_profile)
-                    ax_y.plot(y_coords_mm[y_max_idx], y_profile[y_max_idx], 'ro')
+                    ax_y.plot(y_coords_mm, y_plot)
+                    ax_y.plot(y_coords_mm[y_max_idx], y_plot[y_max_idx], 'ro')
                     # Calcular y graficar FWHM (en mm)
-                    left_y, right_y, fwhm_y, half_power_y = self.find_fwhm_points(y_profile, self.y)
+                    left_y, right_y, fwhm_y, half_power_y = self.find_fwhm_points(y_plot, self.y)
                     ax_y.plot([left_y, right_y], [half_power_y, half_power_y], 'm--')
                     ax_y.plot([left_y], [half_power_y], 'mv')
                     ax_y.plot([right_y], [half_power_y], 'mv')
@@ -943,13 +1026,13 @@ class ScatterDialog(QDialog):
 
                     # Gráfico de perfil Z
                     ax_z = self.figure_z.add_subplot(111)
-                    ax_z.plot(z_coords_mm, z_profile)
-                    ax_z.plot(z_coords_mm[z_max_idx], z_profile[z_max_idx], 'ro')
+                    ax_z.plot(z_coords_mm, z_plot)
+                    ax_z.plot(z_coords_mm[z_max_idx], z_plot[z_max_idx], 'ro')
                     # Calcular y graficar FWHM (en mm)
-                    left_z, right_z, fwhm_z, half_power_z = self.find_fwhm_points(z_profile, self.z)
+                    left_z, right_z, fwhm_z, half_power_z = self.find_fwhm_points(z_plot, self.z)
                     ax_z.plot([left_z, right_z], [half_power_z, half_power_z], 'm--')
                     ax_z.plot([left_z], [half_power_z], 'mv')
-                    ax_z.plot([right_z], [half_power_z], 'mv') # Error tipográfico corregido: right_t -> right_z
+                    ax_z.plot([right_z], [half_power_z], 'mv')
                     z_center = z_coords_mm[z_max_idx]
                     ax_z.set_xlim(z_center - self.zoom_window, z_center + self.zoom_window)  # Zoom de ±4mm
                     ax_z.set_title(f'Z Profile (FWHM = {fwhm_z:.3f} mm)')
@@ -968,10 +1051,6 @@ class ScatterDialog(QDialog):
                 # Connect new signal and store the connection
                 self.simu_connection = lambda index: update_profile_plots(index)
                 self.ui.combbsimu.currentIndexChanged.connect(self.simu_connection)
-                
-                # Llamar una vez para graficar el primer punto
-                if self.ui.combbsimu.count() > 0:
-                    self.simu_connection(0)
 
             else:
                 QMessageBox.critical(self, "Error", "Coordinate ranges not available")
@@ -982,7 +1061,7 @@ class ScatterDialog(QDialog):
             self.ui.InputIndez.setEnabled(True)
             self.ui.buttonGraph.setEnabled(True)
             self.ui.buttonTable.setEnabled(False)
-            # InputZoom permanece deshabilitado (configurado al inicio de la función)
+            self.ui.InputZoom.setEnabled(False)
     
             try:
                 # Intentar convertir el texto actual a un entero
@@ -1005,13 +1084,11 @@ class ScatterDialog(QDialog):
                 self.ui.InputIndez.setText('0')
             
             # Call the update_manual_graphs method to display initial graphs
-            if hasattr(self, 'xs_pixels') or self.data is not None: # Condición más robusta
+            if hasattr(self, 'xs_pixels'):
                 self.update_manual_graphs()
         
         elif choice == "Find peaks ":
-            # self.find_peaks_graph() # Esta función no está definida, la comento
-            print("Find peaks no implementado")
-            pass
+            self.find_peaks_graph()
 
     def update_manual_graphs(self):
         """Update graphs based on the current manual input value"""
@@ -1064,15 +1141,6 @@ class ScatterDialog(QDialog):
                 y_profile = self.data[x_index, :, z_index]  # Perfil a lo largo del eje Y
                 z_profile = self.data[x_index, y_index, :]  # Perfil a lo largo del eje Z
 
-                # Normalizar si el checkbox está activado
-                if hasattr(self.ui, 'checkBox') and self.ui.checkBox.isChecked():
-                    if x_profile.size > 0:
-                        x_profile = x_profile - np.max(x_profile)
-                    if y_profile.size > 0:
-                        y_profile = y_profile - np.max(y_profile)
-                    if z_profile.size > 0:
-                        z_profile = z_profile - np.max(z_profile)
-
                 # Convertir coordenadas a milímetros para la visualización
                 x_coords = self.x.flatten() * 1000
                 y_coords = self.y.flatten() * 1000
@@ -1082,11 +1150,6 @@ class ScatterDialog(QDialog):
                     max_value = np.max(profile)
                     min_value = np.min(profile)
                     signal_range = max_value - min_value
-                    
-                    # Evitar división por cero o prominencia nula
-                    if signal_range == 0:
-                        signal_range = 1.0 
-                        min_value = max_value - 1.0
 
                     adaptive_prominence = signal_range * 0.1
                     height_threshold = min_value + signal_range * 0.1
@@ -1119,11 +1182,21 @@ class ScatterDialog(QDialog):
                 # --- GUARDAR para callback ---
                 self._peak_data = {}
 
-                # Graficar perfil X con todos los picos
+                # Aplicar normalización en dB si está activada (los datos ya están en dB)
+                if self.normalize:
+                    x_profile_plot = self.normalize_db(x_profile)
+                    y_profile_plot = self.normalize_db(y_profile)
+                    z_profile_plot = self.normalize_db(z_profile)
+                else:
+                    x_profile_plot = x_profile
+                    y_profile_plot = y_profile
+                    z_profile_plot = z_profile
+
+                # --- Graficar perfil X con todos los picos
                 ax_x = self.figure_x.add_subplot(111)
-                ax_x.plot(x_coords, x_profile)
-                peaks_x, values_x = find_peaks_and_values(x_profile)
-                red_dots_x = ax_x.plot(x_coords[peaks_x], [x_profile[peak] for peak in peaks_x], 'ro', picker=5)[0]
+                ax_x.plot(x_coords, x_profile_plot)
+                peaks_x, values_x = find_peaks_and_values(x_profile_plot)
+                red_dots_x = ax_x.plot(x_coords[peaks_x], [x_profile_plot[peak] for peak in peaks_x], 'ro', picker=5)[0]
                 for peak, value in zip(peaks_x, values_x):
                     ax_x.annotate(f'{value:.1f}dB', 
                                 (x_coords[peak], value),
@@ -1139,14 +1212,14 @@ class ScatterDialog(QDialog):
                 # Guardar info para callback
                 self._peak_data['x'] = {
                     'coords': x_coords[peaks_x],
-                    'values': [x_profile[peak] for peak in peaks_x]
+                    'values': [x_profile_plot[peak] for peak in peaks_x]
                 }
 
                 # Graficar perfil Y con todos los picos
                 ax_y = self.figure_y.add_subplot(111)
-                ax_y.plot(y_coords, y_profile)
-                peaks_y, values_y = find_peaks_and_values(y_profile)
-                red_dots_y = ax_y.plot(y_coords[peaks_y], [y_profile[peak] for peak in peaks_y], 'ro', picker=5)[0]
+                ax_y.plot(y_coords, y_profile_plot)
+                peaks_y, values_y = find_peaks_and_values(y_profile_plot)
+                red_dots_y = ax_y.plot(y_coords[peaks_y], [y_profile_plot[peak] for peak in peaks_y], 'ro', picker=5)[0]
                 for peak, value in zip(peaks_y, values_y):
                     ax_y.annotate(f'{value:.1f}dB', 
                                 (y_coords[peak], value),
@@ -1161,14 +1234,14 @@ class ScatterDialog(QDialog):
                 self.canvas_y.draw()
                 self._peak_data['y'] = {
                     'coords': y_coords[peaks_y],
-                    'values': [y_profile[peak] for peak in peaks_y]
+                    'values': [y_profile_plot[peak] for peak in peaks_y]
                 }
 
                 # Graficar perfil Z con todos los picos
                 ax_z = self.figure_z.add_subplot(111)
-                ax_z.plot(z_coords, z_profile)
-                peaks_z, values_z = find_peaks_and_values(z_profile)
-                red_dots_z = ax_z.plot(z_coords[peaks_z], [z_profile[peak] for peak in peaks_z], 'ro', picker=5)[0]
+                ax_z.plot(z_coords, z_profile_plot)
+                peaks_z, values_z = find_peaks_and_values(z_profile_plot)
+                red_dots_z = ax_z.plot(z_coords[peaks_z], [z_profile_plot[peak] for peak in peaks_z], 'ro', picker=5)[0]
                 for peak, value in zip(peaks_z, values_z):
                     ax_z.annotate(f'{value:.1f}dB', 
                                 (z_coords[peak], value),
@@ -1183,7 +1256,7 @@ class ScatterDialog(QDialog):
                 self.canvas_z.draw()
                 self._peak_data['z'] = {
                     'coords': z_coords[peaks_z],
-                    'values': [z_profile[peak] for peak in peaks_z]
+                    'values': [z_profile_plot[peak] for peak in peaks_z]
                 }
 
                 # --- ACCIÓN DE CLIC PARA PUNTOS ROJOS ---
@@ -1227,7 +1300,7 @@ class ScatterDialog(QDialog):
                 except AttributeError:
                     pass
                 try:
-                    self.canvas_z.mpl_disconnect(self.zpick_cid)
+                    self.canvas_z.mpl_disconnect(self._zpick_cid)
                 except AttributeError:
                     pass
                 self._xpick_cid = self.canvas_x.mpl_connect('pick_event', on_pick_x)
@@ -1475,4 +1548,4 @@ if __name__ == "__main__":
     sys.exit(app.exec_())
 
 
-#VERSION FINAL
+#VERSION FINAL  

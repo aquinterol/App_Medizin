@@ -607,13 +607,6 @@ class ScatterDialog(QDialog):
         # Configurar la interfaz del diálogo
         self.ui = Ui_Dialog()
         self.ui.setupUi(self)
-        
-        # Conectar el CheckBox de normalización
-        # Asumo que tu checkbox se llama 'checkBox' en el .ui
-        if hasattr(self.ui, 'checkBox'):
-            self.ui.checkBox.stateChanged.connect(self.on_normalize_changed)
-        else:
-            print("ADVERTENCIA: No se encontró 'self.ui.checkBox'.")
 
         # Almacenar los valores de coordenadas
         self.xs = xs
@@ -637,6 +630,7 @@ class ScatterDialog(QDialog):
         self.ui.buttonGraph.setEnabled(False)
         self.ui.buttonTable.clicked.connect(self.open_table_dialog)
        
+
         # Configurar los lienzos de Matplotlib ANTES de conectar señales
         self.setup_matplotlib_canvases()
 
@@ -655,35 +649,12 @@ class ScatterDialog(QDialog):
         # Populate simulation points
         self.populate_simulation_points()
 
-        # --- CORRECCIÓN DE ERROR DE ATRIBUTO ---
-        # Inicialización del zoom DEBE ir ANTES de llamar a on_combobox_changed
-        self.zoom_window = 4.0
-        if hasattr(self.ui, 'InputZoom'): # Comprobar si InputZoom existe en la UI
-            self.ui.InputZoom.editingFinished.connect(self.update_zoom_window)
-        else:
-            print("ADVERTENCIA: No se encontró 'self.ui.InputZoom'. Usando zoom fijo de 4.0")
-        # --- FIN DE LA CORRECCIÓN ---
-
         # Llamar al método inicialmente para configurar el estado correcto
         self.on_combobox_changed(self.ui.combbprincipal.currentIndex()) 
 
-    def on_normalize_changed(self):
-        """
-        Se llama cuando el estado de self.ui.checkBox cambia.
-        Vuelve a dibujar los gráficos actuales con la nueva configuración de normalización.
-        """
-        choice = self.ui.combbprincipal.currentText()
-        
-        if choice == "Simulation peaks ":
-            # Vuelve a ejecutar el gráfico para el punto de simulación actual
-            if hasattr(self, 'simu_connection') and self.simu_connection:
-                current_index = self.ui.combbsimu.currentIndex()
-                if current_index >= 0:
-                    self.simu_connection(current_index)
-                    
-        elif choice == "Manual input ":
-            # Vuelve a ejecutar el gráfico manual
-            self.update_manual_graphs()
+        #Inicialización del zoom
+        self.zoom_window = 4.0
+        self.ui.InputZoom.editingFinished.connect(self.update_zoom_window)
     
     def populate_simulation_points(self):
         self.ui.combbsimu.clear()
@@ -764,13 +735,6 @@ class ScatterDialog(QDialog):
             x_profile = self.data[:, self.ys_pixels[idx], self.zs_pixels[idx]]
             y_profile = self.data[self.xs_pixels[idx], :, self.zs_pixels[idx]]
             z_profile = self.data[self.xs_pixels[idx], self.ys_pixels[idx], :]
-            
-            # Aplicar normalización si es necesario ANTES de calcular FWHM
-            if hasattr(self.ui, 'checkBox') and self.ui.checkBox.isChecked():
-                if x_profile.size > 0: x_profile = x_profile - np.max(x_profile)
-                if y_profile.size > 0: y_profile = y_profile - np.max(y_profile)
-                if z_profile.size > 0: z_profile = z_profile - np.max(z_profile)
-
             _, _, fwhm_x, _ = self.find_fwhm_points(x_profile, self.x)
             _, _, fwhm_y, _ = self.find_fwhm_points(y_profile, self.y)
             _, _, fwhm_z, _ = self.find_fwhm_points(z_profile, self.z)
@@ -809,10 +773,6 @@ class ScatterDialog(QDialog):
         self.figure_z.set_tight_layout(True)
         
     def update_zoom_window(self):
-        # Asegurarse de que InputZoom existe antes de usarlo
-        if not hasattr(self.ui, 'InputZoom'):
-            return
-            
         texto = self.ui.InputZoom.text().strip()
         try:
             valor = float(texto)
@@ -845,21 +805,13 @@ class ScatterDialog(QDialog):
         self.ui.InputIndex.setEnabled(False)
         self.ui.InputIndey.setEnabled(False)
         self.ui.InputIndez.setEnabled(False)
-        
-        # Deshabilitar InputZoom si existe
-        if hasattr(self.ui, 'InputZoom'):
-            self.ui.InputZoom.setEnabled(False)
-
 
         # Habilitar controles basados en la selección
         if choice == "Simulation peaks ":
             self.ui.combbsimu.setEnabled(True)
             self.ui.buttonTable.setEnabled(True)
             self.ui.buttonGraph.setEnabled(False)
-            
-            # Habilitar InputZoom si existe
-            if hasattr(self.ui, 'InputZoom'):
-                self.ui.InputZoom.setEnabled(True)
+            self.ui.InputZoom.setEnabled(True)
             
             # Mapear coordenadas si se proporcionan rangos originales
             if self.x is not None and self.y is not None and self.z is not None:
@@ -882,15 +834,6 @@ class ScatterDialog(QDialog):
                     x_profile = self.data[:, self.ys_pixels[point_index], self.zs_pixels[point_index]]
                     y_profile = self.data[self.xs_pixels[point_index], :, self.zs_pixels[point_index]]
                     z_profile = self.data[self.xs_pixels[point_index], self.ys_pixels[point_index], :]
-
-                    # Normalizar si el checkbox está activado
-                    if hasattr(self.ui, 'checkBox') and self.ui.checkBox.isChecked():
-                        if x_profile.size > 0:
-                            x_profile = x_profile - np.max(x_profile)
-                        if y_profile.size > 0:
-                            y_profile = y_profile - np.max(y_profile)
-                        if z_profile.size > 0:
-                            z_profile = z_profile - np.max(z_profile)
 
                     # Encontrar los picos máximos
                     x_max_idx = np.argmax(x_profile)
@@ -949,7 +892,7 @@ class ScatterDialog(QDialog):
                     left_z, right_z, fwhm_z, half_power_z = self.find_fwhm_points(z_profile, self.z)
                     ax_z.plot([left_z, right_z], [half_power_z, half_power_z], 'm--')
                     ax_z.plot([left_z], [half_power_z], 'mv')
-                    ax_z.plot([right_z], [half_power_z], 'mv') # Error tipográfico corregido: right_t -> right_z
+                    ax_z.plot([right_z], [half_power_z], 'mv')
                     z_center = z_coords_mm[z_max_idx]
                     ax_z.set_xlim(z_center - self.zoom_window, z_center + self.zoom_window)  # Zoom de ±4mm
                     ax_z.set_title(f'Z Profile (FWHM = {fwhm_z:.3f} mm)')
@@ -968,10 +911,6 @@ class ScatterDialog(QDialog):
                 # Connect new signal and store the connection
                 self.simu_connection = lambda index: update_profile_plots(index)
                 self.ui.combbsimu.currentIndexChanged.connect(self.simu_connection)
-                
-                # Llamar una vez para graficar el primer punto
-                if self.ui.combbsimu.count() > 0:
-                    self.simu_connection(0)
 
             else:
                 QMessageBox.critical(self, "Error", "Coordinate ranges not available")
@@ -982,7 +921,7 @@ class ScatterDialog(QDialog):
             self.ui.InputIndez.setEnabled(True)
             self.ui.buttonGraph.setEnabled(True)
             self.ui.buttonTable.setEnabled(False)
-            # InputZoom permanece deshabilitado (configurado al inicio de la función)
+            self.ui.InputZoom.setEnabled(False)
     
             try:
                 # Intentar convertir el texto actual a un entero
@@ -1005,13 +944,11 @@ class ScatterDialog(QDialog):
                 self.ui.InputIndez.setText('0')
             
             # Call the update_manual_graphs method to display initial graphs
-            if hasattr(self, 'xs_pixels') or self.data is not None: # Condición más robusta
+            if hasattr(self, 'xs_pixels'):
                 self.update_manual_graphs()
         
         elif choice == "Find peaks ":
-            # self.find_peaks_graph() # Esta función no está definida, la comento
-            print("Find peaks no implementado")
-            pass
+            self.find_peaks_graph()
 
     def update_manual_graphs(self):
         """Update graphs based on the current manual input value"""
@@ -1064,15 +1001,6 @@ class ScatterDialog(QDialog):
                 y_profile = self.data[x_index, :, z_index]  # Perfil a lo largo del eje Y
                 z_profile = self.data[x_index, y_index, :]  # Perfil a lo largo del eje Z
 
-                # Normalizar si el checkbox está activado
-                if hasattr(self.ui, 'checkBox') and self.ui.checkBox.isChecked():
-                    if x_profile.size > 0:
-                        x_profile = x_profile - np.max(x_profile)
-                    if y_profile.size > 0:
-                        y_profile = y_profile - np.max(y_profile)
-                    if z_profile.size > 0:
-                        z_profile = z_profile - np.max(z_profile)
-
                 # Convertir coordenadas a milímetros para la visualización
                 x_coords = self.x.flatten() * 1000
                 y_coords = self.y.flatten() * 1000
@@ -1082,11 +1010,6 @@ class ScatterDialog(QDialog):
                     max_value = np.max(profile)
                     min_value = np.min(profile)
                     signal_range = max_value - min_value
-                    
-                    # Evitar división por cero o prominencia nula
-                    if signal_range == 0:
-                        signal_range = 1.0 
-                        min_value = max_value - 1.0
 
                     adaptive_prominence = signal_range * 0.1
                     height_threshold = min_value + signal_range * 0.1
@@ -1227,7 +1150,7 @@ class ScatterDialog(QDialog):
                 except AttributeError:
                     pass
                 try:
-                    self.canvas_z.mpl_disconnect(self.zpick_cid)
+                    self.canvas_z.mpl_disconnect(self._zpick_cid)
                 except AttributeError:
                     pass
                 self._xpick_cid = self.canvas_x.mpl_connect('pick_event', on_pick_x)
@@ -1475,4 +1398,4 @@ if __name__ == "__main__":
     sys.exit(app.exec_())
 
 
-#VERSION FINAL
+#VERSION FINAL  
