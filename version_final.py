@@ -558,24 +558,47 @@ class MyWidget(QWidget):
 
     def open_scatter_dialog(self):
         try:
+            reply = QMessageBox.question(
+                self,
+                "Datos para Scatter",
+                "Do you want to upload new data for scatter plot? (Selecting 'No' will use current data)",
+                QMessageBox.Yes | QMessageBox.No,
+                QMessageBox.No
+            )
+            if reply == QMessageBox.Yes:
+                file_path, _ = QFileDialog.getOpenFileName(
+                    self, "Select file", "", 
+                    "Archivos CSV (*.csv);;Archivos de texto (*.txt);;Todos los archivos (*)"
+                )
+                if file_path:
+                    import numpy as np
+                    arr = np.loadtxt(file_path, delimiter=',')
+                    if arr.shape[1] != 3:
+                        QMessageBox.critical(self, "Error", "File must have tree columns (xs, ys, zs).")
+                        return
+                    # Asigna directamente a los atributos de la clase
+                    self.xs, self.ys, self.zs = arr[:,0], arr[:,1], arr[:,2]
+                else:
+                    return
+
             self.scatter_activado = not self.scatter_activado
             self.plot_volume()
-            self.scatter_dialog = ScatterDialog(self.xs,self.ys,self.zs,self.x,self.y,self.z, self.data)
+            self.scatter_dialog = ScatterDialog(self.xs, self.ys, self.zs, self.x, self.y, self.z, self.data)
             self.scatter_dialog.exec_()
         except Exception as e:
             QMessageBox.critical(self, "Error", f"No se pudo abrir el gráfico de dispersión: {str(e)}")
 
     def open_popup_dialog(self):
-        try:
-            dlg = PopupDialog(
-                parent=self,
-                data=self.data,
-                x=self.x, y=self.y, z=self.z,
-                xs=self.xs, ys=self.ys, zs=self.zs,
-            )
-            dlg.exec_()        
-        except Exception as e:
-            QMessageBox.critical(self, "Error", f"Error: {str(e)}")    
+         try:
+             dlg = PopupDialog(
+                 parent=self,
+                 data=self.data,
+                 x=self.x, y=self.y, z=self.z,
+                 xs=self.xs, ys=self.ys, zs=self.zs,
+             )
+             dlg.exec_()        
+         except Exception as e:
+             QMessageBox.critical(self, "Error", f"Error: {str(e)}")    
 
 class ScatterDialog(QDialog):
     def __init__(self, xs, ys, zs, x=None, y=None, z=None, data= None):
@@ -1152,6 +1175,7 @@ class DialogWindow(QDialog):
         self.ui = Ui_Form()
         self.ui.setupUi(self)  
         self.ui.tableWidget.verticalHeader().setVisible(False)
+        self.ui.butexport.clicked.connect(self.save_table)
 
     def load_fwhm_table(self, fwhm_list):
         """
@@ -1162,7 +1186,23 @@ class DialogWindow(QDialog):
             self.ui.tableWidget.setItem(row, 0, QTableWidgetItem(str(pt)))
             self.ui.tableWidget.setItem(row, 1, QTableWidgetItem(f"{fx:.3f}"))
             self.ui.tableWidget.setItem(row, 2, QTableWidgetItem(f"{fy:.3f}"))
-            self.ui.tableWidget.setItem(row, 3, QTableWidgetItem(f"{fz:.3f}"))       
+            self.ui.tableWidget.setItem(row, 3, QTableWidgetItem(f"{fz:.3f}"))    
+
+    
+    def save_table(self):
+        path, _ = QFileDialog.getSaveFileName(self, "Save table", "", "CSV Files (*.csv)")
+        if path:
+            with open(path, 'w', encoding='utf-8') as f:
+                # Escribir encabezado
+                headers = [self.ui.tableWidget.horizontalHeaderItem(i).text() for i in range(self.ui.tableWidget.columnCount())]
+                f.write(','.join(headers) + '\n')
+                # Escribir filas
+                for row in range(self.ui.tableWidget.rowCount()):
+                    row_data = []
+                    for col in range(self.ui.tableWidget.columnCount()):
+                        item = self.ui.tableWidget.item(row, col)
+                        row_data.append(item.text() if item else "")
+                    f.write(','.join(row_data) + '\n')           
 
 class PopupDialog(QDialog):
     def __init__(self, parent=None, data=None, x=None, y=None, z=None, xs=None, ys=None, zs=None):
