@@ -1773,8 +1773,12 @@ class CDDialog (QDialog):
             self.visualization.scene.background = (0.2, 0.2, 0.2)
             src = mlab.pipeline.scalar_field(self.data, figure=self.visualization.scene.mayavi_scene)
             
-            # Usar "Volume rendering" por defecto
-            mlab.pipeline.volume(mlab.pipeline.scalar_field(self.data, vmin=0, vmax=0.8))
+            # Seleccionar el tipo de visualización basado en el comboBox
+            choice_combb = self.ui.combbprincipal.currentText()
+            if choice_combb == "3D Visualization - Isosurface":
+                 mlab.contour3d(self.data, contours=8, opacity=0.5, figure=self.visualization.scene.mayavi_scene)
+            elif choice_combb == "3D Visualization - Volume rendering":
+                mlab.pipeline.volume(mlab.pipeline.scalar_field(self.data, vmin=0, vmax=0.8, figure=self.visualization.scene.mayavi_scene))
             
             # Determinar las etiquetas y rangos
             scale_factor = 1000  # Usar milímetros por defecto
