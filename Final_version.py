@@ -10,6 +10,7 @@ from ui_pw import Ui_Widget
 from ui_sw import Ui_Dialog  
 from ui_fwhm import Ui_Form  
 from ui_popup import Ui_Form as Ui_ScatterDialog
+from ui_cd import Ui_Form as Ui_CDDialog
 import scipy.io
 import numpy as np
 from matplotlib.backends.backend_qt5agg import FigureCanvasQTAgg as FigureCanvas
@@ -53,6 +54,7 @@ class MyWidget(QWidget):
         self.ui.horizontalSlider.setEnabled(False)
         self.ui.horizontalSlider.valueChanged.connect(self.update_slice_position)
         self.ui.Figure2D.clicked.connect(self.open_popup_dialog)
+        self.ui.CompData.clicked.connect(self.open_comparison_dialog)
        
         
         # Connect the units combobox
@@ -626,7 +628,22 @@ class MyWidget(QWidget):
              )
              dlg.exec_()        
          except Exception as e:
-             QMessageBox.critical(self, "Error", f"Error: {str(e)}")    
+             QMessageBox.critical(self, "Error", f"Error: {str(e)}") 
+
+    def open_comparison_dialog(self):
+         try:
+             if self.data is None:
+                 QMessageBox.warning(self, "Error", "No data loaded. Please open a .mat file first.")
+                 return
+             dlg = CDDialog(
+                 parent=self,
+                 data=self.data,
+                 x=self.x, y=self.y, z=self.z,
+                 xs=self.xs, ys=self.ys, zs=self.zs,
+             )
+             dlg.exec_()        
+         except Exception as e:
+             QMessageBox.critical(self, "Error", f"Error: {str(e)}")             
 
 class ScatterDialog(QDialog):
     # Añadir lambda_value al constructor
@@ -1658,6 +1675,18 @@ class PopupDialog(QDialog):
             # Mejor limpiar y añadir
             self.frame_layout.addWidget(self.toolbar)
 
+class CDDialog (QDialog):
+    def __init__(self, parent=None, data=None, x=None, y=None, z=None, xs=None, ys=None, zs=None):
+        super().__init__(parent)
+        self.ui = Ui_CDDialog()
+        self.ui.setupUi(self)
+        self.data = data
+        self.x = x
+        self.y = y
+        self.z = z
+        self.xs = xs
+        self.ys = ys
+        self.zs = zs
 
 if __name__ == "__main__":
     app = QApplication([])

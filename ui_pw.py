@@ -95,7 +95,7 @@ class Ui_Widget(object):
         self.textInfo.setObjectName("textInfo")
         self.horizontalSlider = QtWidgets.QSlider(Widget)
         self.horizontalSlider.setGeometry(QtCore.QRect(450, 850, 160, 18))
-        self.horizontalSlider.setOrientation(QtCore.Qt.Horizontal)
+        self.horizontalSlider.setOrientation(QtCore.Qt.Orientation.Horizontal)
         self.horizontalSlider.setObjectName("horizontalSlider")
         self.label = QtWidgets.QLabel(Widget)
         self.label.setGeometry(QtCore.QRect(350, 870, 391, 20))
@@ -112,6 +112,13 @@ class Ui_Widget(object):
 "    color: white;\n"
 "}")
         self.Figure2D.setObjectName("Figure2D")
+        self.CompData = QtWidgets.QPushButton(Widget)
+        self.CompData.setGeometry(QtCore.QRect(1350, 820, 201, 41))
+        self.CompData.setStyleSheet("QPushButton {\n"
+"    background-color: rgb(0, 0, 77);\n"
+"    color: white;\n"
+"}")
+        self.CompData.setObjectName("CompData")
 
         self.retranslateUi(Widget)
         self.comboBox.setCurrentIndex(-1)
@@ -133,3 +140,4 @@ class Ui_Widget(object):
         self.comboBox_2.setItemText(0, _translate("Widget", "Milimeters"))
         self.comboBox_2.setItemText(1, _translate("Widget", "Wavelength "))
         self.Figure2D.setText(_translate("Widget", "2D cuts"))
+        self.CompData.setText(_translate("Widget", "Compare data "))

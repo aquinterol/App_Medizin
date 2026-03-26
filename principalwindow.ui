@@ -247,6 +247,25 @@
     <string>2D cuts</string>
    </property>
   </widget>
+  <widget class="QPushButton" name="CompData">
+   <property name="geometry">
+    <rect>
+     <x>1350</x>
+     <y>820</y>
+     <width>201</width>
+     <height>41</height>
+    </rect>
+   </property>
+   <property name="styleSheet">
+    <string notr="true">QPushButton {
+    background-color: rgb(0, 0, 77);
+    color: white;
+}</string>
+   </property>
+   <property name="text">
+    <string>Compare data </string>
+   </property>
+  </widget>
  </widget>
  <resources/>
  <connections/>
