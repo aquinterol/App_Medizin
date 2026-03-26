@@ -7,7 +7,7 @@
     <x>0</x>
     <y>0</y>
     <width>1450</width>
-    <height>880</height>
+    <height>913</height>
    </rect>
   </property>
   <property name="windowTitle">
@@ -34,7 +34,7 @@ font: 16pt &quot;Segoe UI&quot;;</string>
    <property name="geometry">
     <rect>
      <x>40</x>
-     <y>160</y>
+     <y>140</y>
      <width>471</width>
      <height>28</height>
     </rect>
@@ -48,6 +48,11 @@ font: 16pt &quot;Segoe UI&quot;;</string>
    <item>
     <property name="text">
      <string>3D Visualization - Volume rendering</string>
+    </property>
+   </item>
+   <item>
+    <property name="text">
+     <string>3D Visualization - Isosurface</string>
     </property>
    </item>
    <item>
@@ -92,9 +97,9 @@ font: 16pt &quot;Segoe UI&quot;;</string>
    <property name="geometry">
     <rect>
      <x>730</x>
-     <y>210</y>
+     <y>190</y>
      <width>701</width>
-     <height>641</height>
+     <height>661</height>
     </rect>
    </property>
   </widget>
@@ -102,9 +107,9 @@ font: 16pt &quot;Segoe UI&quot;;</string>
    <property name="geometry">
     <rect>
      <x>10</x>
-     <y>210</y>
+     <y>190</y>
      <width>701</width>
-     <height>641</height>
+     <height>661</height>
     </rect>
    </property>
   </widget>
@@ -120,6 +125,26 @@ font: 16pt &quot;Segoe UI&quot;;</string>
    <property name="text">
     <string>Please select a file to compare</string>
    </property>
+  </widget>
+  <widget class="QComboBox" name="comboBox_2">
+   <property name="geometry">
+    <rect>
+     <x>1200</x>
+     <y>120</y>
+     <width>221</width>
+     <height>28</height>
+    </rect>
+   </property>
+   <item>
+    <property name="text">
+     <string>Milimeters</string>
+    </property>
+   </item>
+   <item>
+    <property name="text">
+     <string>Wavelength </string>
+    </property>
+   </item>
   </widget>
  </widget>
  <resources/>

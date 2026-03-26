@@ -95,7 +95,8 @@ class MyWidget(QWidget):
         layout.addWidget(vis_widget.edit_traits(parent=self, kind='subpanel').control)
         return vis_widget
 
-    def get_param_value(self, mat_data, field_name):
+    @staticmethod
+    def get_param_value(mat_data, field_name):
         try:
             value = mat_data['param'][field_name][0][0][0]
             
@@ -1689,10 +1690,49 @@ class CDDialog (QDialog):
         self.ys = ys
         self.zs = zs
         self.lambda_value = lambda_value
+        self.ui.buttonOpenfile.clicked.connect(self.open_file)
 
     # Crear la visualización Mayavi para Frame2_2 (o el frame que uses)
         if hasattr(self.ui, 'Frame1'):
             self.setup_3d_visualization()
+
+    def open_file(self):
+        file_path, _ = QFileDialog.getOpenFileName(self, "Select File", "", "MAT files (*.mat)")
+        if file_path:
+            try:
+                mat_data = scipy.io.loadmat(file_path)
+                self.data_2 = mat_data.get('data', None)
+                
+                # Cargar las coordenadas x, y, z si están disponibles
+                self.x_2 = mat_data.get('x', None)
+                self.y_2 = mat_data.get('y', None)
+                self.z_2 = mat_data.get('z', None)
+
+                # Cargar las coordenadas x, y, z si están disponibles
+                self.xs_2 = mat_data.get('xs', None)
+                self.ys_2 = mat_data.get('ys', None)
+                self.zs_2 = mat_data.get('zs', None)
+
+                
+                # Obtener lambda_value del archivo
+                self.lambda_value_2 = MyWidget.get_param_value(mat_data, 'lambda')
+                if isinstance(self.lambda_value_2, str) or self.lambda_value_2 == 0 or self.lambda_value_2 is None:
+                    self.lambda_value_2 = 1.0  # Valor predeterminado si no se encuentra
+                
+                # Convertir a arrays unidimensionales si es necesario
+                if self.x_2 is not None and len(self.x_2.shape) > 1:
+                    self.x_2 = self.x_2.ravel()
+                if self.y_2 is not None and len(self.y_2.shape) > 1:
+                    self.y_2 = self.y_2.ravel()
+                if self.z_2 is not None and len(self.z_2.shape) > 1:
+                    self.z_2 = self.z_2.ravel()
+
+                if self.data_2 is not None:
+                    self.ui.dataText.setText(f"Opened File: {file_path}")
+                else:
+                    self.ui.dataText.setText("Error: No valid data in file.")
+            except Exception as e:
+                self.ui.dataText.setText(f"Error loading file: {e}")        
     
     def setup_3d_visualization(self):
         """
