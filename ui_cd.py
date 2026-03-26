@@ -21,7 +21,7 @@ class Ui_Form(object):
 "font: 16pt \"Segoe UI\";")
         self.Title_d.setObjectName("Title_d")
         self.combbprincipal = QtWidgets.QComboBox(Form)
-        self.combbprincipal.setGeometry(QtCore.QRect(490, 80, 471, 28))
+        self.combbprincipal.setGeometry(QtCore.QRect(40, 160, 471, 28))
         self.combbprincipal.setStyleSheet("QCombobox {\n"
 "    background-color: rgb(0, 0, 127);\n"
 "    color: rgb(255, 255, 255);\n"
@@ -29,22 +29,25 @@ class Ui_Form(object):
         self.combbprincipal.setObjectName("combbprincipal")
         self.combbprincipal.addItem("")
         self.combbprincipal.addItem("")
-        self.buttonGraph = QtWidgets.QPushButton(Form)
-        self.buttonGraph.setGeometry(QtCore.QRect(660, 820, 141, 29))
-        self.buttonGraph.setStyleSheet("QPushButton {\n"
+        self.buttonOpenfile = QtWidgets.QPushButton(Form)
+        self.buttonOpenfile.setGeometry(QtCore.QRect(590, 100, 141, 29))
+        self.buttonOpenfile.setStyleSheet("QPushButton {\n"
 "    background-color: rgb(0, 0, 77);\n"
 "    color: white;\n"
 "}")
-        self.buttonGraph.setObjectName("buttonGraph")
+        self.buttonOpenfile.setObjectName("buttonOpenfile")
         self.label = QtWidgets.QLabel(Form)
         self.label.setGeometry(QtCore.QRect(350, 40, 821, 20))
         self.label.setObjectName("label")
         self.Frame2 = QtWidgets.QWidget(Form)
-        self.Frame2.setGeometry(QtCore.QRect(730, 140, 701, 641))
+        self.Frame2.setGeometry(QtCore.QRect(730, 210, 701, 641))
         self.Frame2.setObjectName("Frame2")
-        self.Frame2_2 = QtWidgets.QWidget(Form)
-        self.Frame2_2.setGeometry(QtCore.QRect(10, 140, 701, 641))
-        self.Frame2_2.setObjectName("Frame2_2")
+        self.Frame1 = QtWidgets.QWidget(Form)
+        self.Frame1.setGeometry(QtCore.QRect(10, 210, 701, 641))
+        self.Frame1.setObjectName("Frame1")
+        self.dataText = QtWidgets.QLabel(Form)
+        self.dataText.setGeometry(QtCore.QRect(40, 100, 489, 29))
+        self.dataText.setObjectName("dataText")
 
         self.retranslateUi(Form)
         QtCore.QMetaObject.connectSlotsByName(Form)
@@ -53,7 +56,8 @@ class Ui_Form(object):
         _translate = QtCore.QCoreApplication.translate
         Form.setWindowTitle(_translate("Form", "Form"))
         self.Title_d.setText(_translate("Form", "Data comparison "))
-        self.combbprincipal.setItemText(0, _translate("Form", "3D Visualization"))
+        self.combbprincipal.setItemText(0, _translate("Form", "3D Visualization - Volume rendering"))
         self.combbprincipal.setItemText(1, _translate("Form", "Axes "))
-        self.buttonGraph.setText(_translate("Form", "Graph "))
+        self.buttonOpenfile.setText(_translate("Form", "Open file"))
         self.label.setText(_translate("Form", "______________________________________________________________________________________________________________________________"))
+        self.dataText.setText(_translate("Form", "Please select a file to compare"))

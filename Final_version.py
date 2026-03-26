@@ -18,6 +18,7 @@ from matplotlib.backends.backend_qt5agg import NavigationToolbar2QT
 from matplotlib.figure import Figure
 from scipy.signal import find_peaks
 import matplotlib.pyplot as plt
+from vtkmodules.qt.QVTKRenderWindowInteractor import QVTKRenderWindowInteractor
 
 class VisualizationWidget(HasTraits):
     scene = Instance(MlabSceneModel, ())
@@ -1676,7 +1677,7 @@ class PopupDialog(QDialog):
             self.frame_layout.addWidget(self.toolbar)
 
 class CDDialog (QDialog):
-    def __init__(self, parent=None, data=None, x=None, y=None, z=None, xs=None, ys=None, zs=None):
+    def __init__(self, parent=None, data=None, x=None, y=None, z=None, xs=None, ys=None, zs=None, lambda_value=1.0):
         super().__init__(parent)
         self.ui = Ui_CDDialog()
         self.ui.setupUi(self)
@@ -1687,6 +1688,82 @@ class CDDialog (QDialog):
         self.xs = xs
         self.ys = ys
         self.zs = zs
+        self.lambda_value = lambda_value
+
+    # Crear la visualización Mayavi para Frame2_2 (o el frame que uses)
+        if hasattr(self.ui, 'Frame1'):
+            self.setup_3d_visualization()
+    
+    def setup_3d_visualization(self):
+        """
+        Configura la visualización 3D (similar a plot_volume) dentro del Frame1
+        """
+        try:
+            # Crear un widget de visualización Mayavi
+            self.visualization = VisualizationWidget()
+            
+            # Crear un layout vertical para el frame
+            layout = QVBoxLayout(self.ui.Frame1)
+            self.ui.Frame1.setLayout(layout)
+            
+            # Agregar el control de visualización al frame
+            self.visualization_control = self.visualization.edit_traits(parent=self, kind='subpanel').control
+            layout.addWidget(self.visualization_control)
+            
+            # Generar la visualización 3D
+            self.plot_3d_volume()
+            
+        except Exception as e:
+            QMessageBox.critical(self, "Error", f"Error setting up 3D visualization: {e}")
+    
+    def plot_3d_volume(self):
+        """
+        Similar a plot_volume() pero para CDDialog
+        Grafica el volumen 3D en la visualización de Mayavi
+        """
+        if self.data is None:
+            QMessageBox.warning(self, "Error", "No data loaded.")
+            return
+        
+        try:
+            # Limpiar la escena
+            mlab.clf(figure=self.visualization.scene.mayavi_scene)
+            
+            # Configurar el fondo
+            self.visualization.scene.background = (0.2, 0.2, 0.2)
+            src = mlab.pipeline.scalar_field(self.data, figure=self.visualization.scene.mayavi_scene)
+            
+            # Usar "Volume rendering" por defecto
+            mlab.pipeline.volume(mlab.pipeline.scalar_field(self.data, vmin=0, vmax=0.8))
+            
+            # Determinar las etiquetas y rangos
+            scale_factor = 1000  # Usar milímetros por defecto
+            xlabel = 'X (mm)'
+            ylabel = 'Y (mm)'
+            zlabel = 'Z (mm)'
+            
+            # Si tenemos coordenadas reales, usarlas
+            if self.x is not None and self.y is not None and self.z is not None:
+                x_min, x_max = self.x[0] * scale_factor, self.x[-1] * scale_factor
+                y_min, y_max = self.y[0] * scale_factor, self.y[-1] * scale_factor
+                z_min, z_max = self.z[0] * scale_factor, self.z[-1] * scale_factor
+                
+                axes = mlab.axes(
+                    xlabel=xlabel, ylabel=ylabel, zlabel=zlabel,
+                    ranges=np.array([x_min, x_max, y_min, y_max, z_min, z_max]).flatten(),
+                    figure=self.visualization.scene.mayavi_scene
+                )
+            else:
+                mlab.axes(xlabel=xlabel, ylabel=ylabel, zlabel=zlabel,
+                         figure=self.visualization.scene.mayavi_scene)
+            
+            # Configurar colorbar y ajustar vista
+            mlab.colorbar(orientation='vertical', nb_labels=5)
+            self.visualization.scene.camera.zoom(1.5)
+            self.visualization.scene.render()
+            
+        except Exception as e:
+            QMessageBox.critical(self, "Error", f"Error plotting 3D volume: {e}")    
 
 if __name__ == "__main__":
     app = QApplication([])

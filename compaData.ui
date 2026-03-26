@@ -33,8 +33,8 @@ font: 16pt &quot;Segoe UI&quot;;</string>
   <widget class="QComboBox" name="combbprincipal">
    <property name="geometry">
     <rect>
-     <x>490</x>
-     <y>80</y>
+     <x>40</x>
+     <y>160</y>
      <width>471</width>
      <height>28</height>
     </rect>
@@ -47,7 +47,7 @@ font: 16pt &quot;Segoe UI&quot;;</string>
    </property>
    <item>
     <property name="text">
-     <string>3D Visualization</string>
+     <string>3D Visualization - Volume rendering</string>
     </property>
    </item>
    <item>
@@ -56,11 +56,11 @@ font: 16pt &quot;Segoe UI&quot;;</string>
     </property>
    </item>
   </widget>
-  <widget class="QPushButton" name="buttonGraph">
+  <widget class="QPushButton" name="buttonOpenfile">
    <property name="geometry">
     <rect>
-     <x>660</x>
-     <y>820</y>
+     <x>590</x>
+     <y>100</y>
      <width>141</width>
      <height>29</height>
     </rect>
@@ -72,7 +72,7 @@ font: 16pt &quot;Segoe UI&quot;;</string>
 }</string>
    </property>
    <property name="text">
-    <string>Graph </string>
+    <string>Open file</string>
    </property>
   </widget>
   <widget class="QLabel" name="label">
@@ -92,20 +92,33 @@ font: 16pt &quot;Segoe UI&quot;;</string>
    <property name="geometry">
     <rect>
      <x>730</x>
-     <y>140</y>
+     <y>210</y>
      <width>701</width>
      <height>641</height>
     </rect>
    </property>
   </widget>
-  <widget class="QWidget" name="Frame2_2" native="true">
+  <widget class="QWidget" name="Frame1" native="true">
    <property name="geometry">
     <rect>
      <x>10</x>
-     <y>140</y>
+     <y>210</y>
      <width>701</width>
      <height>641</height>
     </rect>
+   </property>
+  </widget>
+  <widget class="QLabel" name="dataText">
+   <property name="geometry">
+    <rect>
+     <x>40</x>
+     <y>100</y>
+     <width>489</width>
+     <height>29</height>
+    </rect>
+   </property>
+   <property name="text">
+    <string>Please select a file to compare</string>
    </property>
   </widget>
  </widget>
