@@ -1677,7 +1677,7 @@ class PopupDialog(QDialog):
             # Mejor limpiar y añadir
             self.frame_layout.addWidget(self.toolbar)
 
-class CDDialog (QDialog):
+class CDDialog(QDialog):
     def __init__(self, parent=None, data=None, x=None, y=None, z=None, xs=None, ys=None, zs=None, lambda_value=1.0):
         super().__init__(parent)
         self.ui = Ui_CDDialog()
@@ -1690,11 +1690,27 @@ class CDDialog (QDialog):
         self.ys = ys
         self.zs = zs
         self.lambda_value = lambda_value
+        
+        # Inicializar variables para el segundo archivo
+        self.data_2 = None
+        self.x_2 = None
+        self.y_2 = None
+        self.z_2 = None
+        self.lambda_value_2 = 1.0
+        
         self.ui.buttonOpenfile.clicked.connect(self.open_file)
 
-    # Crear la visualización Mayavi para Frame2_2 (o el frame que uses)
+        # Crear la visualización Mayavi para Frame1 (primer archivo - data)
         if hasattr(self.ui, 'Frame1'):
-            self.setup_3d_visualization()
+            self.setup_3d_visualization_frame1()
+        
+        # Crear la visualización Mayavi para Frame2 (segundo archivo - data_2)
+        if hasattr(self.ui, 'Frame2'):
+            self.setup_3d_visualization_frame2()
+        
+        # Conectar el comboBox ÚNICO a ambos frames
+        if hasattr(self.ui, 'combbprincipal'):
+            self.ui.combbprincipal.currentIndexChanged.connect(self.update_both_visualizations)
 
     def open_file(self):
         file_path, _ = QFileDialog.getOpenFileName(self, "Select File", "", "MAT files (*.mat)")
@@ -1708,16 +1724,14 @@ class CDDialog (QDialog):
                 self.y_2 = mat_data.get('y', None)
                 self.z_2 = mat_data.get('z', None)
 
-                # Cargar las coordenadas x, y, z si están disponibles
                 self.xs_2 = mat_data.get('xs', None)
                 self.ys_2 = mat_data.get('ys', None)
                 self.zs_2 = mat_data.get('zs', None)
 
-                
                 # Obtener lambda_value del archivo
                 self.lambda_value_2 = MyWidget.get_param_value(mat_data, 'lambda')
                 if isinstance(self.lambda_value_2, str) or self.lambda_value_2 == 0 or self.lambda_value_2 is None:
-                    self.lambda_value_2 = 1.0  # Valor predeterminado si no se encuentra
+                    self.lambda_value_2 = 1.0
                 
                 # Convertir a arrays unidimensionales si es necesario
                 if self.x_2 is not None and len(self.x_2.shape) > 1:
@@ -1729,85 +1743,150 @@ class CDDialog (QDialog):
 
                 if self.data_2 is not None:
                     self.ui.dataText.setText(f"Opened File: {file_path}")
+                    # Redibujar Frame2 con los nuevos datos
+                    self.plot_3d_volume_frame2()
                 else:
                     self.ui.dataText.setText("Error: No valid data in file.")
             except Exception as e:
                 self.ui.dataText.setText(f"Error loading file: {e}")        
     
-    def setup_3d_visualization(self):
-        """
-        Configura la visualización 3D (similar a plot_volume) dentro del Frame1
-        """
+    # ========== FRAME 1 (Data original) ==========
+    def setup_3d_visualization_frame1(self):
+        """Configura la visualización 3D en Frame1 para el primer archivo"""
         try:
-            # Crear un widget de visualización Mayavi
-            self.visualization = VisualizationWidget()
-            
-            # Crear un layout vertical para el frame
+            self.visualization_1 = VisualizationWidget()
             layout = QVBoxLayout(self.ui.Frame1)
             self.ui.Frame1.setLayout(layout)
-            
-            # Agregar el control de visualización al frame
-            self.visualization_control = self.visualization.edit_traits(parent=self, kind='subpanel').control
-            layout.addWidget(self.visualization_control)
-            
-            # Generar la visualización 3D
-            self.plot_3d_volume()
-            
+            self.visualization_control_1 = self.visualization_1.edit_traits(parent=self, kind='subpanel').control
+            layout.addWidget(self.visualization_control_1)
+            self.plot_3d_volume_frame1()
         except Exception as e:
-            QMessageBox.critical(self, "Error", f"Error setting up 3D visualization: {e}")
+            QMessageBox.critical(self, "Error", f"Error setting up 3D visualization Frame1: {e}")
     
-    def plot_3d_volume(self):
-        """
-        Similar a plot_volume() pero para CDDialog
-        Grafica el volumen 3D en la visualización de Mayavi
-        """
+    def plot_3d_volume_frame1(self):
+        """Grafica el volumen 3D del primer archivo en Frame1"""
         if self.data is None:
-            QMessageBox.warning(self, "Error", "No data loaded.")
             return
         
         try:
-            # Limpiar la escena
-            mlab.clf(figure=self.visualization.scene.mayavi_scene)
+            mlab.clf(figure=self.visualization_1.scene.mayavi_scene)
+            self.visualization_1.scene.background = (0.2, 0.2, 0.2)
+            src = mlab.pipeline.scalar_field(self.data, figure=self.visualization_1.scene.mayavi_scene)
             
-            # Configurar el fondo
-            self.visualization.scene.background = (0.2, 0.2, 0.2)
-            src = mlab.pipeline.scalar_field(self.data, figure=self.visualization.scene.mayavi_scene)
+            # Obtener la opción del comboBox ÚNICO
+            choice = self.get_visualization_choice()
             
-            # Seleccionar el tipo de visualización basado en el comboBox
-            choice_combb = self.ui.combbprincipal.currentText()
-            if choice_combb == "3D Visualization - Isosurface":
-                 mlab.contour3d(self.data, contours=8, opacity=0.5, figure=self.visualization.scene.mayavi_scene)
-            elif choice_combb == "3D Visualization - Volume rendering":
-                mlab.pipeline.volume(mlab.pipeline.scalar_field(self.data, vmin=0, vmax=0.8, figure=self.visualization.scene.mayavi_scene))
+            # Comparar con las opciones exactas del comboBox
+            if choice == "3D Visualization - Isosurface":
+                mlab.contour3d(self.data, contours=8, opacity=0.5, 
+                              figure=self.visualization_1.scene.mayavi_scene)
+            elif choice == "Axes":
+                # Si es "Axes", mostrar solo los ejes
+                mlab.axes(figure=self.visualization_1.scene.mayavi_scene)
+            else:  # "3D Visualization - Volume rendering" por defecto
+                mlab.pipeline.volume(src, figure=self.visualization_1.scene.mayavi_scene)
             
             # Determinar las etiquetas y rangos
-            scale_factor = 1000  # Usar milímetros por defecto
+            scale_factor = 1000
             xlabel = 'X (mm)'
             ylabel = 'Y (mm)'
             zlabel = 'Z (mm)'
             
-            # Si tenemos coordenadas reales, usarlas
             if self.x is not None and self.y is not None and self.z is not None:
                 x_min, x_max = self.x[0] * scale_factor, self.x[-1] * scale_factor
                 y_min, y_max = self.y[0] * scale_factor, self.y[-1] * scale_factor
                 z_min, z_max = self.z[0] * scale_factor, self.z[-1] * scale_factor
                 
-                axes = mlab.axes(
+                mlab.axes(
                     xlabel=xlabel, ylabel=ylabel, zlabel=zlabel,
                     ranges=np.array([x_min, x_max, y_min, y_max, z_min, z_max]).flatten(),
-                    figure=self.visualization.scene.mayavi_scene
+                    figure=self.visualization_1.scene.mayavi_scene
                 )
             else:
                 mlab.axes(xlabel=xlabel, ylabel=ylabel, zlabel=zlabel,
-                         figure=self.visualization.scene.mayavi_scene)
+                         figure=self.visualization_1.scene.mayavi_scene)
             
-            # Configurar colorbar y ajustar vista
             mlab.colorbar(orientation='vertical', nb_labels=5)
-            self.visualization.scene.camera.zoom(1.5)
-            self.visualization.scene.render()
+            self.visualization_1.scene.camera.zoom(1.5)
+            self.visualization_1.scene.render()
             
         except Exception as e:
-            QMessageBox.critical(self, "Error", f"Error plotting 3D volume: {e}")    
+            QMessageBox.critical(self, "Error", f"Error plotting 3D volume Frame1: {e}")
+    
+    # ========== FRAME 2 (Data_2 del segundo archivo) ==========
+    def setup_3d_visualization_frame2(self):
+        """Configura la visualización 3D en Frame2 para el segundo archivo"""
+        try:
+            self.visualization_2 = VisualizationWidget()
+            layout = QVBoxLayout(self.ui.Frame2)
+            self.ui.Frame2.setLayout(layout)
+            self.visualization_control_2 = self.visualization_2.edit_traits(parent=self, kind='subpanel').control
+            layout.addWidget(self.visualization_control_2)
+            self.plot_3d_volume_frame2()
+        except Exception as e:
+            QMessageBox.critical(self, "Error", f"Error setting up 3D visualization Frame2: {e}")
+    
+    def plot_3d_volume_frame2(self):
+        """Grafica el volumen 3D del segundo archivo en Frame2"""
+        if self.data_2 is None:
+            return
+        
+        try:
+            mlab.clf(figure=self.visualization_2.scene.mayavi_scene)
+            self.visualization_2.scene.background = (0.2, 0.2, 0.2)
+            src = mlab.pipeline.scalar_field(self.data_2, figure=self.visualization_2.scene.mayavi_scene)
+            
+            # Obtener la opción del comboBox ÚNICO
+            choice = self.get_visualization_choice()
+            
+            # Comparar con las opciones exactas del comboBox
+            if choice == "3D Visualization - Isosurface":
+                mlab.contour3d(self.data_2, contours=8, opacity=0.5, 
+                              figure=self.visualization_2.scene.mayavi_scene)
+            elif choice == "Axes":
+                # Si es "Axes", mostrar solo los ejes
+                mlab.axes(figure=self.visualization_2.scene.mayavi_scene)
+            else:  # "3D Visualization - Volume rendering" por defecto
+                mlab.pipeline.volume(src, figure=self.visualization_2.scene.mayavi_scene)
+            
+            # Determinar las etiquetas y rangos
+            scale_factor = 1000
+            xlabel = 'X (mm)'
+            ylabel = 'Y (mm)'
+            zlabel = 'Z (mm)'
+            
+            if self.x_2 is not None and self.y_2 is not None and self.z_2 is not None:
+                x_min, x_max = self.x_2[0] * scale_factor, self.x_2[-1] * scale_factor
+                y_min, y_max = self.y_2[0] * scale_factor, self.y_2[-1] * scale_factor
+                z_min, z_max = self.z_2[0] * scale_factor, self.z_2[-1] * scale_factor
+                
+                mlab.axes(
+                    xlabel=xlabel, ylabel=ylabel, zlabel=zlabel,
+                    ranges=np.array([x_min, x_max, y_min, y_max, z_min, z_max]).flatten(),
+                    figure=self.visualization_2.scene.mayavi_scene
+                )
+            else:
+                mlab.axes(xlabel=xlabel, ylabel=ylabel, zlabel=zlabel,
+                         figure=self.visualization_2.scene.mayavi_scene)
+            
+            mlab.colorbar(orientation='vertical', nb_labels=5)
+            self.visualization_2.scene.camera.zoom(1.5)
+            self.visualization_2.scene.render()
+            
+        except Exception as e:
+            QMessageBox.critical(self, "Error", f"Error plotting 3D volume Frame2: {e}")
+    
+    # ========== MÉTODOS AUXILIARES ==========
+    def get_visualization_choice(self):
+        """Obtiene la opción del comboBox único"""
+        if hasattr(self.ui, 'combbprincipal'):
+            return self.ui.combbprincipal.currentText()
+        return "3D Visualization - Volume rendering"  # Por defecto
+    
+    def update_both_visualizations(self):
+        """Actualiza AMBOS frames cuando cambia el comboBox único"""
+        self.plot_3d_volume_frame1()
+        self.plot_3d_volume_frame2()
 
 if __name__ == "__main__":
     app = QApplication([])
