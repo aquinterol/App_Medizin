@@ -6,145 +6,296 @@
    <rect>
     <x>0</x>
     <y>0</y>
-    <width>1450</width>
-    <height>913</height>
+    <width>1470</width>
+    <height>966</height>
    </rect>
   </property>
   <property name="windowTitle">
    <string>Form</string>
   </property>
-  <widget class="QLabel" name="Title_d">
+  <widget class="QTabWidget" name="tabWidget">
    <property name="geometry">
     <rect>
-     <x>610</x>
-     <y>20</y>
-     <width>221</width>
-     <height>31</height>
+     <x>0</x>
+     <y>0</y>
+     <width>1471</width>
+     <height>961</height>
     </rect>
    </property>
-   <property name="styleSheet">
-    <string notr="true">color: rgb(0, 0, 127);
-font: 16pt &quot;Segoe UI&quot;;</string>
+   <property name="currentIndex">
+    <number>1</number>
    </property>
-   <property name="text">
-    <string>Data comparison </string>
-   </property>
-  </widget>
-  <widget class="QComboBox" name="combbprincipal">
-   <property name="geometry">
-    <rect>
-     <x>40</x>
-     <y>140</y>
-     <width>471</width>
-     <height>28</height>
-    </rect>
-   </property>
-   <property name="styleSheet">
-    <string notr="true">QCombobox {
+   <widget class="QWidget" name="v3D">
+    <attribute name="title">
+     <string>Comparison 3D visualisation </string>
+    </attribute>
+    <widget class="QWidget" name="Frame1" native="true">
+     <property name="geometry">
+      <rect>
+       <x>10</x>
+       <y>100</y>
+       <width>701</width>
+       <height>721</height>
+      </rect>
+     </property>
+    </widget>
+    <widget class="QWidget" name="Frame2" native="true">
+     <property name="geometry">
+      <rect>
+       <x>750</x>
+       <y>100</y>
+       <width>701</width>
+       <height>721</height>
+      </rect>
+     </property>
+    </widget>
+    <widget class="QComboBox" name="combbprincipal">
+     <property name="geometry">
+      <rect>
+       <x>480</x>
+       <y>40</y>
+       <width>471</width>
+       <height>28</height>
+      </rect>
+     </property>
+     <property name="styleSheet">
+      <string notr="true">QCombobox {
     background-color: rgb(0, 0, 127);
 	color: rgb(255, 255, 255);
 }</string>
-   </property>
-   <item>
-    <property name="text">
-     <string>3D Visualization - Volume rendering</string>
-    </property>
-   </item>
-   <item>
-    <property name="text">
-     <string>3D Visualization - Isosurface</string>
-    </property>
-   </item>
-   <item>
-    <property name="text">
-     <string>Axes </string>
-    </property>
-   </item>
-  </widget>
-  <widget class="QPushButton" name="buttonOpenfile">
-   <property name="geometry">
-    <rect>
-     <x>590</x>
-     <y>100</y>
-     <width>141</width>
-     <height>29</height>
-    </rect>
-   </property>
-   <property name="styleSheet">
-    <string notr="true">QPushButton {
+     </property>
+     <item>
+      <property name="text">
+       <string>Volume rendering</string>
+      </property>
+     </item>
+     <item>
+      <property name="text">
+       <string>Isosurface</string>
+      </property>
+     </item>
+    </widget>
+   </widget>
+   <widget class="QWidget" name="Scatters">
+    <attribute name="title">
+     <string>Comparison scatters visualisation </string>
+    </attribute>
+    <widget class="QPushButton" name="graph_scatter_cd">
+     <property name="geometry">
+      <rect>
+       <x>370</x>
+       <y>80</y>
+       <width>131</width>
+       <height>41</height>
+      </rect>
+     </property>
+     <property name="styleSheet">
+      <string notr="true">QPushButton {
     background-color: rgb(0, 0, 77);
     color: white;
 }</string>
-   </property>
-   <property name="text">
-    <string>Open file</string>
-   </property>
-  </widget>
-  <widget class="QLabel" name="label">
-   <property name="geometry">
-    <rect>
-     <x>350</x>
-     <y>40</y>
-     <width>821</width>
-     <height>20</height>
-    </rect>
-   </property>
-   <property name="text">
-    <string>______________________________________________________________________________________________________________________________</string>
-   </property>
-  </widget>
-  <widget class="QWidget" name="Frame2" native="true">
-   <property name="geometry">
-    <rect>
-     <x>730</x>
-     <y>190</y>
-     <width>701</width>
-     <height>661</height>
-    </rect>
-   </property>
-  </widget>
-  <widget class="QWidget" name="Frame1" native="true">
-   <property name="geometry">
-    <rect>
-     <x>10</x>
-     <y>190</y>
-     <width>701</width>
-     <height>661</height>
-    </rect>
-   </property>
-  </widget>
-  <widget class="QLabel" name="dataText">
-   <property name="geometry">
-    <rect>
-     <x>40</x>
-     <y>100</y>
-     <width>489</width>
-     <height>29</height>
-    </rect>
-   </property>
-   <property name="text">
-    <string>Please select a file to compare</string>
-   </property>
-  </widget>
-  <widget class="QComboBox" name="comboBox_2">
-   <property name="geometry">
-    <rect>
-     <x>1200</x>
-     <y>120</y>
-     <width>221</width>
-     <height>28</height>
-    </rect>
-   </property>
-   <item>
-    <property name="text">
-     <string>Milimeters</string>
-    </property>
-   </item>
-   <item>
-    <property name="text">
-     <string>Wavelength </string>
-    </property>
-   </item>
+     </property>
+     <property name="text">
+      <string>Graph</string>
+     </property>
+    </widget>
+    <widget class="QLabel" name="label_6">
+     <property name="geometry">
+      <rect>
+       <x>750</x>
+       <y>90</y>
+       <width>221</width>
+       <height>20</height>
+      </rect>
+     </property>
+     <property name="text">
+      <string>Graph configuration </string>
+     </property>
+    </widget>
+    <widget class="QComboBox" name="boxcd">
+     <property name="geometry">
+      <rect>
+       <x>1030</x>
+       <y>30</y>
+       <width>221</width>
+       <height>28</height>
+      </rect>
+     </property>
+     <item>
+      <property name="text">
+       <string>Circle</string>
+      </property>
+     </item>
+     <item>
+      <property name="text">
+       <string>Cross</string>
+      </property>
+     </item>
+    </widget>
+    <widget class="QWidget" name="Frame3" native="true">
+     <property name="geometry">
+      <rect>
+       <x>20</x>
+       <y>180</y>
+       <width>701</width>
+       <height>721</height>
+      </rect>
+     </property>
+    </widget>
+    <widget class="QLabel" name="label_12">
+     <property name="geometry">
+      <rect>
+       <x>90</x>
+       <y>30</y>
+       <width>221</width>
+       <height>20</height>
+      </rect>
+     </property>
+     <property name="text">
+      <string>Please write the desired values </string>
+     </property>
+    </widget>
+    <widget class="QWidget" name="Frame4" native="true">
+     <property name="geometry">
+      <rect>
+       <x>740</x>
+       <y>180</y>
+       <width>701</width>
+       <height>721</height>
+      </rect>
+     </property>
+    </widget>
+    <widget class="QCheckBox" name="direction_cd">
+     <property name="geometry">
+      <rect>
+       <x>1170</x>
+       <y>90</y>
+       <width>181</width>
+       <height>26</height>
+      </rect>
+     </property>
+     <property name="text">
+      <string>Change axes direction</string>
+     </property>
+    </widget>
+    <widget class="QCheckBox" name="scttlabel_cd">
+     <property name="geometry">
+      <rect>
+       <x>1170</x>
+       <y>130</y>
+       <width>151</width>
+       <height>26</height>
+      </rect>
+     </property>
+     <property name="text">
+      <string>Scatter label</string>
+     </property>
+    </widget>
+    <widget class="QCheckBox" name="colorbar_cd">
+     <property name="geometry">
+      <rect>
+       <x>1000</x>
+       <y>90</y>
+       <width>93</width>
+       <height>26</height>
+      </rect>
+     </property>
+     <property name="text">
+      <string>Color bar</string>
+     </property>
+    </widget>
+    <widget class="QCheckBox" name="secondax_cd">
+     <property name="geometry">
+      <rect>
+       <x>1000</x>
+       <y>130</y>
+       <width>121</width>
+       <height>26</height>
+      </rect>
+     </property>
+     <property name="text">
+      <string>Second Axis</string>
+     </property>
+    </widget>
+    <widget class="QLineEdit" name="Y_Value_cd">
+     <property name="geometry">
+      <rect>
+       <x>150</x>
+       <y>130</y>
+       <width>113</width>
+       <height>28</height>
+      </rect>
+     </property>
+     <property name="text">
+      <string/>
+     </property>
+    </widget>
+    <widget class="QLabel" name="label_14">
+     <property name="geometry">
+      <rect>
+       <x>280</x>
+       <y>130</y>
+       <width>63</width>
+       <height>20</height>
+      </rect>
+     </property>
+     <property name="text">
+      <string>mm</string>
+     </property>
+    </widget>
+    <widget class="QLabel" name="label_15">
+     <property name="geometry">
+      <rect>
+       <x>280</x>
+       <y>80</y>
+       <width>63</width>
+       <height>20</height>
+      </rect>
+     </property>
+     <property name="text">
+      <string>mm</string>
+     </property>
+    </widget>
+    <widget class="QLabel" name="label_16">
+     <property name="geometry">
+      <rect>
+       <x>80</x>
+       <y>80</y>
+       <width>63</width>
+       <height>20</height>
+      </rect>
+     </property>
+     <property name="text">
+      <string>X-value</string>
+     </property>
+    </widget>
+    <widget class="QLineEdit" name="X_value_cd">
+     <property name="geometry">
+      <rect>
+       <x>150</x>
+       <y>80</y>
+       <width>113</width>
+       <height>28</height>
+      </rect>
+     </property>
+     <property name="text">
+      <string/>
+     </property>
+    </widget>
+    <widget class="QLabel" name="label_17">
+     <property name="geometry">
+      <rect>
+       <x>80</x>
+       <y>130</y>
+       <width>63</width>
+       <height>20</height>
+      </rect>
+     </property>
+     <property name="text">
+      <string>Y-value</string>
+     </property>
+    </widget>
+   </widget>
   </widget>
  </widget>
  <resources/>

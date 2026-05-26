@@ -633,19 +633,22 @@ class MyWidget(QWidget):
              QMessageBox.critical(self, "Error", f"Error: {str(e)}") 
 
     def open_comparison_dialog(self):
-         try:
-             if self.data is None:
-                 QMessageBox.warning(self, "Error", "No data loaded. Please open a .mat file first.")
-                 return
-             dlg = CDDialog(
-                 parent=self,
-                 data=self.data,
-                 x=self.x, y=self.y, z=self.z,
-                 xs=self.xs, ys=self.ys, zs=self.zs,
-             )
-             dlg.exec_()        
-         except Exception as e:
-             QMessageBox.critical(self, "Error", f"Error: {str(e)}")             
+        try:
+            if self.data is None:
+                QMessageBox.warning(self, "Error", "No data loaded. Please open a .mat file first.")
+                return
+            
+            # El diálogo pedirá el archivo automáticamente al abrirse
+            dlg = CDDialog(
+                parent=self,
+                data=self.data,
+                x=self.x, y=self.y, z=self.z,
+                xs=self.xs, ys=self.ys, zs=self.zs,
+                lambda_value=self.lambda_value
+            )
+            dlg.exec_()        
+        except Exception as e:
+            QMessageBox.critical(self, "Error", f"Error: {str(e)}")           
 
 class ScatterDialog(QDialog):
     # Añadir lambda_value al constructor
@@ -1682,6 +1685,8 @@ class CDDialog(QDialog):
         super().__init__(parent)
         self.ui = Ui_CDDialog()
         self.ui.setupUi(self)
+        
+        # Datos del primer archivo
         self.data = data
         self.x = x
         self.y = y
@@ -1691,74 +1696,112 @@ class CDDialog(QDialog):
         self.zs = zs
         self.lambda_value = lambda_value
         
-        # Inicializar variables para el segundo archivo
+        # Datos del segundo archivo (a comparar)
         self.data_2 = None
         self.x_2 = None
         self.y_2 = None
         self.z_2 = None
         self.lambda_value_2 = 1.0
         
-        self.ui.buttonOpenfile.clicked.connect(self.open_file)
+        # Pedir el archivo al abrir
+        if not self.load_comparison_file():
+            self.close()  # Cerrar el diálogo si no se selecciona archivo
+            return
+        
+        # Ahora sí configurar la UI
+        self.setup_ui()
+
+    def load_comparison_file(self):
+        """
+        Abre un diálogo para seleccionar el archivo a comparar
+        Retorna True si se cargó correctamente, False si se canceló
+        """
+        file_path, _ = QFileDialog.getOpenFileName(
+            self, 
+            "Select File to Compare", 
+            "", 
+            "MAT files (*.mat)"
+        )
+        
+        if not file_path:
+            QMessageBox.warning(self, "Error", "No file selected. The dialog will close.")
+            return False
+        
+        try:
+            mat_data = scipy.io.loadmat(file_path)
+            self.data_2 = mat_data.get('data', None)
+            
+            # Cargar las coordenadas x, y, z
+            self.x_2 = mat_data.get('x', None)
+            self.y_2 = mat_data.get('y', None)
+            self.z_2 = mat_data.get('z', None)
+
+            self.xs_2 = mat_data.get('xs', None)
+            self.ys_2 = mat_data.get('ys', None)
+            self.zs_2 = mat_data.get('zs', None)
+
+            # Obtener lambda_value del archivo
+            self.lambda_value_2 = MyWidget.get_param_value(mat_data, 'lambda')
+            if isinstance(self.lambda_value_2, str) or self.lambda_value_2 == 0 or self.lambda_value_2 is None:
+                self.lambda_value_2 = 1.0
+            
+            # Convertir a arrays unidimensionales si es necesario
+            if self.x_2 is not None and len(self.x_2.shape) > 1:
+                self.x_2 = self.x_2.ravel()
+            if self.y_2 is not None and len(self.y_2.shape) > 1:
+                self.y_2 = self.y_2.ravel()
+            if self.z_2 is not None and len(self.z_2.shape) > 1:
+                self.z_2 = self.z_2.ravel()
+
+            if self.data_2 is None:
+                QMessageBox.critical(self, "Error", "No valid data found in the selected file.")
+                return False
+            
+            QMessageBox.information(self, "Success", f"File loaded successfully:\n{file_path.split('/')[-1]}")
+            return True
+            
+        except Exception as e:
+            QMessageBox.critical(self, "Error", f"Error loading file: {e}")
+            return False
+
+    def setup_ui(self):
+        """Configura la interfaz después de cargar el archivo"""
+        # Configurar las opciones del comboBox (solo Volume rendering e Isosurface)
+        self.ui.combbprincipal.clear()
+        self.ui.combbprincipal.addItem("Volume rendering")
+        self.ui.combbprincipal.addItem("Isosurface")
+        
+        # Conectar el comboBox a la actualización de visualizaciones
+        self.ui.combbprincipal.currentIndexChanged.connect(self.update_both_visualizations)
 
         # Crear la visualización Mayavi para Frame1 (primer archivo - data)
+        # Los frames ya tienen un layout del TabWidget, así que limpiar primero
         if hasattr(self.ui, 'Frame1'):
             self.setup_3d_visualization_frame1()
         
         # Crear la visualización Mayavi para Frame2 (segundo archivo - data_2)
         if hasattr(self.ui, 'Frame2'):
             self.setup_3d_visualization_frame2()
-        
-        # Conectar el comboBox ÚNICO a ambos frames
-        if hasattr(self.ui, 'combbprincipal'):
-            self.ui.combbprincipal.currentIndexChanged.connect(self.update_both_visualizations)
 
-    def open_file(self):
-        file_path, _ = QFileDialog.getOpenFileName(self, "Select File", "", "MAT files (*.mat)")
-        if file_path:
-            try:
-                mat_data = scipy.io.loadmat(file_path)
-                self.data_2 = mat_data.get('data', None)
-                
-                # Cargar las coordenadas x, y, z si están disponibles
-                self.x_2 = mat_data.get('x', None)
-                self.y_2 = mat_data.get('y', None)
-                self.z_2 = mat_data.get('z', None)
-
-                self.xs_2 = mat_data.get('xs', None)
-                self.ys_2 = mat_data.get('ys', None)
-                self.zs_2 = mat_data.get('zs', None)
-
-                # Obtener lambda_value del archivo
-                self.lambda_value_2 = MyWidget.get_param_value(mat_data, 'lambda')
-                if isinstance(self.lambda_value_2, str) or self.lambda_value_2 == 0 or self.lambda_value_2 is None:
-                    self.lambda_value_2 = 1.0
-                
-                # Convertir a arrays unidimensionales si es necesario
-                if self.x_2 is not None and len(self.x_2.shape) > 1:
-                    self.x_2 = self.x_2.ravel()
-                if self.y_2 is not None and len(self.y_2.shape) > 1:
-                    self.y_2 = self.y_2.ravel()
-                if self.z_2 is not None and len(self.z_2.shape) > 1:
-                    self.z_2 = self.z_2.ravel()
-
-                if self.data_2 is not None:
-                    self.ui.dataText.setText(f"Opened File: {file_path}")
-                    # Redibujar Frame2 con los nuevos datos
-                    self.plot_3d_volume_frame2()
-                else:
-                    self.ui.dataText.setText("Error: No valid data in file.")
-            except Exception as e:
-                self.ui.dataText.setText(f"Error loading file: {e}")        
-    
     # ========== FRAME 1 (Data original) ==========
     def setup_3d_visualization_frame1(self):
         """Configura la visualización 3D en Frame1 para el primer archivo"""
         try:
             self.visualization_1 = VisualizationWidget()
+            
+            # Limpiar el layout existente del frame si lo tiene
+            if self.ui.Frame1.layout():
+                self.clear_layout(self.ui.Frame1.layout())
+            
+            # Crear nuevo layout
             layout = QVBoxLayout(self.ui.Frame1)
             self.ui.Frame1.setLayout(layout)
+            
+            # Agregar el control de visualización al frame
             self.visualization_control_1 = self.visualization_1.edit_traits(parent=self, kind='subpanel').control
             layout.addWidget(self.visualization_control_1)
+            
+            # Generar la visualización 3D
             self.plot_3d_volume_frame1()
         except Exception as e:
             QMessageBox.critical(self, "Error", f"Error setting up 3D visualization Frame1: {e}")
@@ -1773,17 +1816,13 @@ class CDDialog(QDialog):
             self.visualization_1.scene.background = (0.2, 0.2, 0.2)
             src = mlab.pipeline.scalar_field(self.data, figure=self.visualization_1.scene.mayavi_scene)
             
-            # Obtener la opción del comboBox ÚNICO
+            # Obtener la opción del comboBox
             choice = self.get_visualization_choice()
             
-            # Comparar con las opciones exactas del comboBox
-            if choice == "3D Visualization - Isosurface":
+            if choice == "Isosurface":
                 mlab.contour3d(self.data, contours=8, opacity=0.5, 
                               figure=self.visualization_1.scene.mayavi_scene)
-            elif choice == "Axes":
-                # Si es "Axes", mostrar solo los ejes
-                mlab.axes(figure=self.visualization_1.scene.mayavi_scene)
-            else:  # "3D Visualization - Volume rendering" por defecto
+            else:  # "Volume rendering" por defecto
                 mlab.pipeline.volume(src, figure=self.visualization_1.scene.mayavi_scene)
             
             # Determinar las etiquetas y rangos
@@ -1818,10 +1857,20 @@ class CDDialog(QDialog):
         """Configura la visualización 3D en Frame2 para el segundo archivo"""
         try:
             self.visualization_2 = VisualizationWidget()
+            
+            # Limpiar el layout existente del frame si lo tiene
+            if self.ui.Frame2.layout():
+                self.clear_layout(self.ui.Frame2.layout())
+            
+            # Crear nuevo layout
             layout = QVBoxLayout(self.ui.Frame2)
             self.ui.Frame2.setLayout(layout)
+            
+            # Agregar el control de visualización al frame
             self.visualization_control_2 = self.visualization_2.edit_traits(parent=self, kind='subpanel').control
             layout.addWidget(self.visualization_control_2)
+            
+            # Generar la visualización 3D
             self.plot_3d_volume_frame2()
         except Exception as e:
             QMessageBox.critical(self, "Error", f"Error setting up 3D visualization Frame2: {e}")
@@ -1836,17 +1885,13 @@ class CDDialog(QDialog):
             self.visualization_2.scene.background = (0.2, 0.2, 0.2)
             src = mlab.pipeline.scalar_field(self.data_2, figure=self.visualization_2.scene.mayavi_scene)
             
-            # Obtener la opción del comboBox ÚNICO
+            # Obtener la opción del comboBox
             choice = self.get_visualization_choice()
             
-            # Comparar con las opciones exactas del comboBox
-            if choice == "3D Visualization - Isosurface":
+            if choice == "Isosurface":
                 mlab.contour3d(self.data_2, contours=8, opacity=0.5, 
                               figure=self.visualization_2.scene.mayavi_scene)
-            elif choice == "Axes":
-                # Si es "Axes", mostrar solo los ejes
-                mlab.axes(figure=self.visualization_2.scene.mayavi_scene)
-            else:  # "3D Visualization - Volume rendering" por defecto
+            else:  # "Volume rendering" por defecto
                 mlab.pipeline.volume(src, figure=self.visualization_2.scene.mayavi_scene)
             
             # Determinar las etiquetas y rangos
@@ -1877,14 +1922,21 @@ class CDDialog(QDialog):
             QMessageBox.critical(self, "Error", f"Error plotting 3D volume Frame2: {e}")
     
     # ========== MÉTODOS AUXILIARES ==========
+    def clear_layout(self, layout):
+        """Limpia todos los widgets de un layout"""
+        while layout.count():
+            child = layout.takeAt(0)
+            if child.widget():
+                child.widget().deleteLater()
+    
     def get_visualization_choice(self):
-        """Obtiene la opción del comboBox único"""
+        """Obtiene la opción del comboBox"""
         if hasattr(self.ui, 'combbprincipal'):
             return self.ui.combbprincipal.currentText()
-        return "3D Visualization - Volume rendering"  # Por defecto
+        return "Volume rendering"
     
     def update_both_visualizations(self):
-        """Actualiza AMBOS frames cuando cambia el comboBox único"""
+        """Actualiza AMBOS frames cuando cambia el comboBox"""
         self.plot_3d_volume_frame1()
         self.plot_3d_volume_frame2()
 

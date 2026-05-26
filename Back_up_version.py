@@ -1398,4 +1398,4 @@ if __name__ == "__main__":
     sys.exit(app.exec_())
 
 
-#VERSION FINAL  
+#version sin la ventana de comparación de datos 
