@@ -23,7 +23,7 @@
     </rect>
    </property>
    <property name="currentIndex">
-    <number>1</number>
+    <number>2</number>
    </property>
    <widget class="QWidget" name="v3D">
     <attribute name="title">
@@ -293,6 +293,288 @@
      </property>
      <property name="text">
       <string>Y-value</string>
+     </property>
+    </widget>
+   </widget>
+   <widget class="QWidget" name="FW">
+    <attribute name="title">
+     <string>Page</string>
+    </attribute>
+    <widget class="QCheckBox" name="checkBox">
+     <property name="geometry">
+      <rect>
+       <x>870</x>
+       <y>150</y>
+       <width>321</width>
+       <height>26</height>
+      </rect>
+     </property>
+     <property name="text">
+      <string>Normalise figures </string>
+     </property>
+    </widget>
+    <widget class="QLineEdit" name="InputIndex">
+     <property name="geometry">
+      <rect>
+       <x>230</x>
+       <y>770</y>
+       <width>113</width>
+       <height>28</height>
+      </rect>
+     </property>
+     <property name="text">
+      <string/>
+     </property>
+    </widget>
+    <widget class="QLabel" name="label_x">
+     <property name="geometry">
+      <rect>
+       <x>20</x>
+       <y>770</y>
+       <width>191</width>
+       <height>20</height>
+      </rect>
+     </property>
+     <property name="text">
+      <string>Input index or position on X  </string>
+     </property>
+    </widget>
+    <widget class="QLineEdit" name="InputIndez">
+     <property name="geometry">
+      <rect>
+       <x>1270</x>
+       <y>770</y>
+       <width>113</width>
+       <height>28</height>
+      </rect>
+     </property>
+     <property name="text">
+      <string/>
+     </property>
+    </widget>
+    <widget class="QWidget" name="FrameX" native="true">
+     <property name="geometry">
+      <rect>
+       <x>0</x>
+       <y>280</y>
+       <width>481</width>
+       <height>471</height>
+      </rect>
+     </property>
+    </widget>
+    <widget class="QComboBox" name="combbsimu">
+     <property name="geometry">
+      <rect>
+       <x>110</x>
+       <y>180</y>
+       <width>451</width>
+       <height>28</height>
+      </rect>
+     </property>
+    </widget>
+    <widget class="QPushButton" name="buttonTable">
+     <property name="geometry">
+      <rect>
+       <x>890</x>
+       <y>850</y>
+       <width>141</width>
+       <height>29</height>
+      </rect>
+     </property>
+     <property name="styleSheet">
+      <string notr="true">QPushButton {
+    background-color: rgb(0, 0, 77);
+    color: white;
+}</string>
+     </property>
+     <property name="text">
+      <string>Table Values</string>
+     </property>
+    </widget>
+    <widget class="QPushButton" name="buttonGraph">
+     <property name="geometry">
+      <rect>
+       <x>460</x>
+       <y>850</y>
+       <width>141</width>
+       <height>29</height>
+      </rect>
+     </property>
+     <property name="styleSheet">
+      <string notr="true">QPushButton {
+    background-color: rgb(0, 0, 77);
+    color: white;
+}</string>
+     </property>
+     <property name="text">
+      <string>Graph </string>
+     </property>
+    </widget>
+    <widget class="QComboBox" name="combbprincipal_2">
+     <property name="geometry">
+      <rect>
+       <x>110</x>
+       <y>130</y>
+       <width>471</width>
+       <height>28</height>
+      </rect>
+     </property>
+     <property name="styleSheet">
+      <string notr="true">QCombobox {
+    background-color: rgb(0, 0, 127);
+	color: rgb(255, 255, 255);
+}</string>
+     </property>
+     <item>
+      <property name="text">
+       <string>Simulation peaks </string>
+      </property>
+     </item>
+     <item>
+      <property name="text">
+       <string>Manual input </string>
+      </property>
+     </item>
+    </widget>
+    <widget class="QLabel" name="label">
+     <property name="geometry">
+      <rect>
+       <x>310</x>
+       <y>60</y>
+       <width>821</width>
+       <height>20</height>
+      </rect>
+     </property>
+     <property name="text">
+      <string>______________________________________________________________________________________________________________________________</string>
+     </property>
+    </widget>
+    <widget class="QWidget" name="FrameY" native="true">
+     <property name="geometry">
+      <rect>
+       <x>490</x>
+       <y>280</y>
+       <width>481</width>
+       <height>471</height>
+      </rect>
+     </property>
+    </widget>
+    <widget class="QLabel" name="label_y">
+     <property name="geometry">
+      <rect>
+       <x>560</x>
+       <y>770</y>
+       <width>191</width>
+       <height>20</height>
+      </rect>
+     </property>
+     <property name="text">
+      <string>Input index or position on Y  </string>
+     </property>
+    </widget>
+    <widget class="QLabel" name="label_z">
+     <property name="geometry">
+      <rect>
+       <x>1060</x>
+       <y>770</y>
+       <width>191</width>
+       <height>20</height>
+      </rect>
+     </property>
+     <property name="text">
+      <string>Input index or position on Z  </string>
+     </property>
+    </widget>
+    <widget class="QLabel" name="label_2">
+     <property name="geometry">
+      <rect>
+       <x>640</x>
+       <y>160</y>
+       <width>63</width>
+       <height>161</height>
+      </rect>
+     </property>
+     <property name="text">
+      <string/>
+     </property>
+    </widget>
+    <widget class="QLineEdit" name="InputIndey">
+     <property name="geometry">
+      <rect>
+       <x>770</x>
+       <y>770</y>
+       <width>113</width>
+       <height>28</height>
+      </rect>
+     </property>
+     <property name="text">
+      <string/>
+     </property>
+    </widget>
+    <widget class="QLabel" name="Title">
+     <property name="geometry">
+      <rect>
+       <x>470</x>
+       <y>30</y>
+       <width>491</width>
+       <height>31</height>
+      </rect>
+     </property>
+     <property name="styleSheet">
+      <string notr="true">color: rgb(0, 0, 127);
+font: 16pt &quot;Segoe UI&quot;;</string>
+     </property>
+     <property name="text">
+      <string>Comparision of scatterer positions</string>
+     </property>
+    </widget>
+    <widget class="QWidget" name="FrameZ" native="true">
+     <property name="geometry">
+      <rect>
+       <x>980</x>
+       <y>280</y>
+       <width>481</width>
+       <height>471</height>
+      </rect>
+     </property>
+    </widget>
+    <widget class="QLineEdit" name="InputZoom">
+     <property name="geometry">
+      <rect>
+       <x>1030</x>
+       <y>100</y>
+       <width>61</width>
+       <height>31</height>
+      </rect>
+     </property>
+     <property name="text">
+      <string/>
+     </property>
+    </widget>
+    <widget class="QLabel" name="zoomvalue">
+     <property name="geometry">
+      <rect>
+       <x>870</x>
+       <y>110</y>
+       <width>191</width>
+       <height>20</height>
+      </rect>
+     </property>
+     <property name="text">
+      <string>Horizontal zoom </string>
+     </property>
+    </widget>
+    <widget class="QCheckBox" name="checkunits">
+     <property name="geometry">
+      <rect>
+       <x>870</x>
+       <y>200</y>
+       <width>321</width>
+       <height>26</height>
+      </rect>
+     </property>
+     <property name="text">
+      <string>Change units to Lambda </string>
      </property>
     </widget>
    </widget>

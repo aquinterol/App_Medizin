@@ -1,3 +1,14 @@
+import os
+
+os.environ["ETS_TOOLKIT"] = "qt4"
+os.environ["ETS_QT4_IMPORTS"] = "1"
+os.environ["QT_API"] = "pyqt5"
+
+from mayavi import mlab
+from pyface.qt import QtGui
+import traitsui
+import matplotlib
+matplotlib.use('Qt5Agg')
 import sys
 from PyQt5.QtWidgets import QApplication, QWidget, QFileDialog, QVBoxLayout, QDialog, QMessageBox, QTableWidgetItem
 from mayavi.core.ui.api import MayaviScene
@@ -5,7 +16,6 @@ from mayavi.tools.mlab_scene_model import MlabSceneModel
 from tvtk.pyface.scene_editor import SceneEditor
 from traits.api import HasTraits, Instance
 from traitsui.api import View, Item
-from mayavi import mlab
 from ui_pw import Ui_Widget
 from ui_sw import Ui_Dialog  
 from ui_fwhm import Ui_Form  
@@ -19,6 +29,39 @@ from matplotlib.figure import Figure
 from scipy.signal import find_peaks
 import matplotlib.pyplot as plt
 from vtkmodules.qt.QVTKRenderWindowInteractor import QVTKRenderWindowInteractor
+
+def get_interpolated_plane(data, coords, coord_mm, axis):
+        # Interpolación lineal de plano de imagen
+        coord_m = coord_mm / 1000.0 # Convertir mm de entrada a metros
+        idx = np.searchsorted(coords, coord_m) # Coordenadas (self.x/y/z) están en metros
+        if idx == 0:
+            idx0, idx1 = 0, 1
+        elif idx >= len(coords):
+            idx0, idx1 = len(coords) - 2, len(coords) - 1
+        else:
+            idx0, idx1 = idx - 1, idx
+        
+        if idx1 >= len(coords): # Control de borde
+            idx1 = len(coords) - 1
+            idx0 = idx1 - 1
+            
+        c0, c1 = coords[idx0], coords[idx1]
+        alpha = (coord_m - c0) / (c1 - c0) if (c1 - c0) != 0 else 0
+        
+        if axis == 'x':
+            img0 = data[idx0, :, :]
+            img1 = data[idx1, :, :]
+        elif axis == 'y':
+            img0 = data[:, idx0, :]
+            img1 = data[:, idx1, :]
+        elif axis == 'z':
+            img0 = data[:, :, idx0]
+            img1 = data[:, :, idx1]
+        else:
+            raise ValueError('Eje inválido')
+        img_interp = (1 - alpha) * img0 + alpha * img1
+        return img_interp
+
 
 class VisualizationWidget(HasTraits):
     scene = Instance(MlabSceneModel, ())
@@ -1506,38 +1549,7 @@ class PopupDialog(QDialog):
 
         self.ui.graph_scatter.clicked.connect(self.show_planes_together)
 
-    def get_interpolated_plane(self, data, coords, coord_mm, axis):
-        # Interpolación lineal de plano de imagen
-        coord_m = coord_mm / 1000.0 # Convertir mm de entrada a metros
-        idx = np.searchsorted(coords, coord_m) # Coordenadas (self.x/y/z) están en metros
-        if idx == 0:
-            idx0, idx1 = 0, 1
-        elif idx >= len(coords):
-            idx0, idx1 = len(coords) - 2, len(coords) - 1
-        else:
-            idx0, idx1 = idx - 1, idx
-        
-        if idx1 >= len(coords): # Control de borde
-            idx1 = len(coords) - 1
-            idx0 = idx1 - 1
-            
-        c0, c1 = coords[idx0], coords[idx1]
-        alpha = (coord_m - c0) / (c1 - c0) if (c1 - c0) != 0 else 0
-        
-        if axis == 'x':
-            img0 = data[idx0, :, :]
-            img1 = data[idx1, :, :]
-        elif axis == 'y':
-            img0 = data[:, idx0, :]
-            img1 = data[:, idx1, :]
-        elif axis == 'z':
-            img0 = data[:, :, idx0]
-            img1 = data[:, :, idx1]
-        else:
-            raise ValueError('Eje inválido')
-        img_interp = (1 - alpha) * img0 + alpha * img1
-        return img_interp
-
+   
     def show_planes_together(self):
         try:
             x_val_str = self.ui.X_value_s.text()
@@ -1564,7 +1576,7 @@ class PopupDialog(QDialog):
             marker_style = 'o'  # Por defecto
 
         # --- Interpolación para plano Y = y_val_mm ---
-        img_y = self.get_interpolated_plane(
+        img_y = get_interpolated_plane(
             self.data, self.y.flatten(), y_val_mm, 'y'
         )
         x_mm = self.x.flatten() * 1000
@@ -1572,7 +1584,7 @@ class PopupDialog(QDialog):
 
 
         # --- Interpolación para plano X = x_val_mm ---
-        img_x = self.get_interpolated_plane(
+        img_x = get_interpolated_plane(
             self.data, self.x.flatten(), x_val_mm, 'x'
         )
         y_mm = self.y.flatten() * 1000
@@ -1685,6 +1697,14 @@ class CDDialog(QDialog):
         super().__init__(parent)
         self.ui = Ui_CDDialog()
         self.ui.setupUi(self)
+
+        #Conectar los botones 
+        self.ui.graph_scatter_cd.clicked.connect(self.show_planes_together)
+        self.ui.boxcd.currentIndexChanged.connect(self.show_planes_together)
+        self.ui.colorbar_cd.stateChanged.connect(self.show_planes_together)
+        self.ui.secondax_cd.stateChanged.connect(self.show_planes_together)
+        self.ui.direction_cd.stateChanged.connect(self.show_planes_together)
+        self.ui.scttlabel_cd.stateChanged.connect(self.show_planes_together)
         
         # Datos del primer archivo
         self.data = data
@@ -1939,6 +1959,208 @@ class CDDialog(QDialog):
         """Actualiza AMBOS frames cuando cambia el comboBox"""
         self.plot_3d_volume_frame1()
         self.plot_3d_volume_frame2()
+
+    def show_planes_together(self):
+        # --- Validación de inputs ---
+        try:
+            x_val_str = self.ui.X_value_cd.text()
+            y_val_str = self.ui.Y_Value_cd.text()
+            if not x_val_str or not y_val_str:
+                QMessageBox.warning(self, "Error", "Por favor ingresa valores para X e Y.")
+                return
+            x_val_mm = float(x_val_str)
+            y_val_mm = float(y_val_str)
+        except ValueError:
+            QMessageBox.warning(self, "Error", "Por favor ingresa números válidos para X e Y.")
+            return
+
+        if self.data is None or self.x is None or self.y is None or self.z is None:
+            QMessageBox.warning(self, "Error", "Datos del archivo 1 no cargados.")
+            return
+
+        if self.data_2 is None or self.x_2 is None or self.y_2 is None or self.z_2 is None:
+            QMessageBox.warning(self, "Error", "Datos del archivo 2 no cargados.")
+            return
+
+        # --- Marker style ---
+        opcion = self.ui.boxcd.currentText()
+        marker_style = 'x' if opcion == "Cross" else 'o'
+
+        # ================================================================
+        # ARCHIVO 1 → frame_1
+        # ================================================================
+        fig1 = Figure(figsize=(10, 5))
+        canvas1 = FigureCanvas(fig1)
+
+        img_y1 = get_interpolated_plane(self.data, self.y.flatten(), y_val_mm, 'y')
+        img_x1 = get_interpolated_plane(self.data, self.x.flatten(), x_val_mm, 'x')
+
+        x_mm1 = self.x.flatten() * 1000
+        y_mm1 = self.y.flatten() * 1000
+        z_mm1 = self.z.flatten() * 1000
+
+        axes1 = fig1.subplots(1, 2)
+
+        # Scatter points para archivo 1
+        if self.xs is not None and self.ys is not None and self.zs is not None:
+            xs_mm = self.xs.flatten() * 1000
+            ys_mm = self.ys.flatten() * 1000
+            zs_mm = self.zs.flatten() * 1000
+
+            # Plano Y=y_val_mm → scatter en X-Z
+            mask_y1 = np.abs(ys_mm - y_val_mm) < 5  # tolerancia 5 mm
+            scatter_y_x1 = xs_mm[mask_y1]
+            scatter_y_z1 = zs_mm[mask_y1]
+            scatter_y_idx1 = np.where(mask_y1)[0]
+
+            # Plano X=x_val_mm → scatter en Y-Z
+            mask_x1 = np.abs(xs_mm - x_val_mm) < 5
+            scatter_x_y1 = ys_mm[mask_x1]
+            scatter_x_z1 = zs_mm[mask_x1]
+            scatter_x_idx1 = np.where(mask_x1)[0]
+        else:
+            scatter_y_x1 = scatter_y_z1 = scatter_y_idx1 = np.array([])
+            scatter_x_y1 = scatter_x_z1 = scatter_x_idx1 = np.array([])
+
+        img_plot1_0 = axes1[0].imshow(img_y1.T, cmap='gray', origin='lower', aspect='auto',
+                                    extent=[x_mm1[0], x_mm1[-1], z_mm1[0], z_mm1[-1]])
+        axes1[0].scatter(scatter_y_x1, scatter_y_z1, c='r', marker=marker_style, label='Scatter')
+        axes1[0].set_title(f'Main file — Y={y_val_mm:.2f} mm')
+        axes1[0].set_xlabel('X (mm)')
+        axes1[0].set_ylabel('Z (mm)')
+        axes1[0].legend()
+        axes1[0].set_aspect('equal', adjustable='box')
+
+        img_plot1_1 = axes1[1].imshow(img_x1.T, cmap='gray', origin='lower', aspect='auto',
+                                    extent=[y_mm1[0], y_mm1[-1], z_mm1[0], z_mm1[-1]])
+        axes1[1].scatter(scatter_x_y1, scatter_x_z1, c='r', marker=marker_style, label='Scatter')
+        axes1[1].set_title(f'Main file — X={x_val_mm:.2f} mm')
+        axes1[1].set_xlabel('Y (mm)')
+        axes1[1].legend()
+        axes1[1].set_aspect('equal', adjustable='box')
+
+        self._apply_shared_options(axes1, z_mm1, scatter_y_x1, scatter_y_z1, scatter_y_idx1,
+                                    scatter_x_y1, scatter_x_z1, scatter_x_idx1,
+                                    img_plot1_1, fig1)
+        fig1.subplots_adjust(wspace=0.05)
+        fig1.tight_layout()
+
+        # ================================================================
+        # ARCHIVO 2 → frame_2
+        # ================================================================
+        fig2 = Figure(figsize=(10, 5))
+        canvas2 = FigureCanvas(fig2)
+
+        img_y2 = get_interpolated_plane(self.data_2, self.y_2.flatten(), y_val_mm, 'y')
+        img_x2 = get_interpolated_plane(self.data_2, self.x_2.flatten(), x_val_mm, 'x')
+
+        x_mm2 = self.x_2.flatten() * 1000
+        y_mm2 = self.y_2.flatten() * 1000
+        z_mm2 = self.z_2.flatten() * 1000
+
+        axes2 = fig2.subplots(1, 2)
+
+        # Scatter points para archivo 2
+        if self.xs_2 is not None and self.ys_2 is not None and self.zs_2 is not None:
+            xs2_mm = self.xs_2.flatten() * 1000
+            ys2_mm = self.ys_2.flatten() * 1000
+            zs2_mm = self.zs_2.flatten() * 1000
+
+            mask_y2 = np.abs(ys2_mm - y_val_mm) < 5
+            scatter_y_x2 = xs2_mm[mask_y2]
+            scatter_y_z2 = zs2_mm[mask_y2]
+            scatter_y_idx2 = np.where(mask_y2)[0]
+
+            mask_x2 = np.abs(xs2_mm - x_val_mm) < 5
+            scatter_x_y2 = ys2_mm[mask_x2]
+            scatter_x_z2 = zs2_mm[mask_x2]
+            scatter_x_idx2 = np.where(mask_x2)[0]
+        else:
+            scatter_y_x2 = scatter_y_z2 = scatter_y_idx2 = np.array([])
+            scatter_x_y2 = scatter_x_z2 = scatter_x_idx2 = np.array([])
+
+        img_plot2_0 = axes2[0].imshow(img_y2.T, cmap='gray', origin='lower', aspect='auto',
+                                    extent=[x_mm2[0], x_mm2[-1], z_mm2[0], z_mm2[-1]])
+        axes2[0].scatter(scatter_y_x2, scatter_y_z2, c='r', marker=marker_style, label='Scatter')
+        axes2[0].set_title(f'Secondary file — Y={y_val_mm:.2f} mm')
+        axes2[0].set_xlabel('X (mm)')
+        axes2[0].set_ylabel('Z (mm)')
+        axes2[0].legend()
+        axes2[0].set_aspect('equal', adjustable='box')
+
+        img_plot2_1 = axes2[1].imshow(img_x2.T, cmap='gray', origin='lower', aspect='auto',
+                                    extent=[y_mm2[0], y_mm2[-1], z_mm2[0], z_mm2[-1]])
+        axes2[1].scatter(scatter_x_y2, scatter_x_z2, c='r', marker=marker_style, label='Scatter')
+        axes2[1].set_title(f'Secondary file — X={x_val_mm:.2f} mm')
+        axes2[1].set_xlabel('Y (mm)')
+        axes2[1].legend()
+        axes2[1].set_aspect('equal', adjustable='box')
+
+        self._apply_shared_options(axes2, z_mm2, scatter_y_x2, scatter_y_z2, scatter_y_idx2,
+                                    scatter_x_y2, scatter_x_z2, scatter_x_idx2,
+                                    img_plot2_1, fig2)
+        fig2.subplots_adjust(wspace=0.05)
+        fig2.tight_layout()
+
+        # ================================================================
+        # Insertar canvas en los frames correspondientes
+        # ================================================================
+        self._embed_canvas(canvas1, self.ui.Frame3)
+        self._embed_canvas(canvas2, self.ui.Frame4)
+
+
+    def _apply_shared_options(self, axes, z_mm,
+                            scatter_y_x, scatter_y_z, scatter_y_idx,
+                            scatter_x_y, scatter_x_z, scatter_x_idx,
+                            img_plot_colorbar, fig):
+        """Aplica las opciones comunes (secondax, direction, scttlabel, colorbar)."""
+
+        if self.ui.secondax_cd.isChecked():
+            axes[1].set_ylabel('Z (mm)')
+            axes[1].tick_params(axis='y', which='both', labelleft=True, left=True)
+        else:
+            axes[1].set_ylabel("")
+            axes[1].set_yticks([])
+            axes[1].tick_params(axis='y', which='both', labelleft=False, left=False)
+
+        if self.ui.direction_cd.isChecked():
+            axes[0].set_ylim(z_mm[0], z_mm[-1])
+            axes[1].set_ylim(z_mm[0], z_mm[-1])
+        else:
+            axes[0].set_ylim(z_mm[-1], z_mm[0])
+            axes[1].set_ylim(z_mm[-1], z_mm[0])
+
+        if self.ui.scttlabel_cd.isChecked():
+            for idx, (x, z) in zip(scatter_y_idx, zip(scatter_y_x, scatter_y_z)):
+                axes[0].text(x, z, f"No. {idx}", color='yellow', fontsize=8, ha='center', va='bottom')
+            for idx, (y, z) in zip(scatter_x_idx, zip(scatter_x_y, scatter_x_z)):
+                axes[1].text(y, z, f"No. {idx}", color='yellow', fontsize=8, ha='center', va='bottom')
+
+        if self.ui.colorbar_cd.isChecked():
+            fig.colorbar(img_plot_colorbar, ax=axes[1], orientation='vertical', label='Amplitude (dB)')
+
+
+    def _embed_canvas(self, canvas, frame):
+        """Limpia el frame e inserta el canvas de matplotlib."""
+        layout = frame.layout()
+
+        if layout is None:
+            layout = QVBoxLayout(frame)
+            frame.setLayout(layout)
+        else:
+            # Limpiar widgets anteriores excepto el toolbar si existe
+            for i in reversed(range(layout.count())):
+                widget = layout.itemAt(i).widget()
+                if widget is not None:
+                    widget.setParent(None)
+
+        layout.addWidget(canvas)
+
+        # Toolbar de navegación: uno por frame, guardado como atributo único
+        toolbar_attr = f'_toolbar_{frame.objectName()}'
+        toolbar = NavigationToolbar2QT(canvas, frame)
+        setattr(self, toolbar_attr, toolbar)
+        layout.addWidget(toolbar)
 
 if __name__ == "__main__":
     app = QApplication([])
