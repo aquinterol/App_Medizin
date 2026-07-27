@@ -186,7 +186,7 @@ class Ui_Form(object):
 
     def retranslateUi(self, Form):
         _translate = QtCore.QCoreApplication.translate
-        Form.setWindowTitle(_translate("Form", "Form"))
+        Form.setWindowTitle(_translate("Form", "Data comparision "))
         self.combbprincipal.setItemText(0, _translate("Form", "Volume rendering"))
         self.combbprincipal.setItemText(1, _translate("Form", "Isosurface"))
         self.tabWidget.setTabText(self.tabWidget.indexOf(self.v3D), _translate("Form", "Comparison 3D visualisation "))

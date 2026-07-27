@@ -589,6 +589,7 @@ class MyWidget(QWidget):
             self.visualization.scene.render()    
 
             if self.scatter_activado:
+                print("Graficando volumen con Scatter activado...")
                 
                 # Mapear las coordenadas reales (xs, ys, zs) a índices de píxeles
                 if self.x is not None and self.y is not None and self.z is not None:
@@ -619,7 +620,7 @@ class MyWidget(QWidget):
         try:
             reply = QMessageBox.question(
                 self,
-                "Data for the Scatter",
+                "Datos para Scatter",
                 "Do you want to upload new data for scatter plot? (Selecting 'No' will use current data)",
                 QMessageBox.Yes | QMessageBox.No,
                 QMessageBox.No
@@ -657,7 +658,7 @@ class MyWidget(QWidget):
             
             self.scatter_dialog.exec_()
         except Exception as e:
-            QMessageBox.critical(self, "Error", f"Cannot open the file: {str(e)}")
+            QMessageBox.critical(self, "Error", f"No se pudo abrir el gráfico de dispersión: {str(e)}")
 
     def open_popup_dialog(self):
          try:
@@ -692,231 +693,218 @@ class MyWidget(QWidget):
         except Exception as e:
             QMessageBox.critical(self, "Error", f"Error: {str(e)}")           
 
-class ProfilePlotMixin:
-    """
-    Mixin reutilizable
-        sources: 
-            'data', 'x', 'y', 'z'      -> volumen y ejes en METROS
-            'xs', 'ys', 'zs'           -> coordenadas de scatterers (metros)
-            'lambda_value'             -> escalar
-            'label'                    -> nombre para leyenda/mensajes
-            'color'                    -> color matplotlib (o None = auto)
-
-        mode_combo: el QComboBox que alterna "Simulation peaks " /
-            "Manual input " (self.ui.combbprincipal en ScatterDialog,
-            self.ui.combbprincipal_2 en CDDialog).
-    """
-
-    # ---------------------------------------------------------------- init
-    def _init_profile_plots(self, sources, mode_combo):
-        self.sources = sources
-        self._mode_combo = mode_combo
-        self.zoom_window = 4.0  # siempre en mm
-
-        # Normalizar lambda_value de cada fuente
-        for src in self.sources:
-            lv = src.get('lambda_value', 1.0)
-            if isinstance(lv, np.ndarray):
-                lv = lv.item()
-            if not lv:
-                lv = 1.0
-            src['lambda_value'] = lv
-
+class ScatterDialog(QDialog):
+    # Añadir lambda_value al constructor
+    def __init__(self, xs, ys, zs, x=None, y=None, z=None, data= None, lambda_value=1.0):
+        super().__init__()
+        
+        # Configurar la interfaz del diálogo
+        self.ui = Ui_Dialog()
+        self.ui.setupUi(self)
+        
+        # Conectar el CheckBox de normalización
         if hasattr(self.ui, 'checkBox'):
-            self.ui.checkBox.stateChanged.connect(self._on_normalize_or_units_changed)
+            self.ui.checkBox.stateChanged.connect(self.on_normalize_changed)
         else:
-            print("ADVERTENCIA: 'self.ui.checkBox'.")
+            print("ADVERTENCIA: No se encontró 'self.ui.checkBox'.")
 
+        # Conectar el CheckBox de unidades (checkunits)
         if hasattr(self.ui, 'checkunits'):
-            self.ui.checkunits.stateChanged.connect(self._on_normalize_or_units_changed)
+            self.ui.checkunits.stateChanged.connect(self.on_units_changed)
         else:
-            print("ADVERTENCIA: 'self.ui.checkunits'.")
+            print("ADVERTENCIA: No se encontró 'self.ui.checkunits'.")
+        
+        # Almacenar lambda_value
+        self.lambda_value = lambda_value
+        
+        # --- CORRECCIÓN DE TIPO ---
+        # Asegurarse de que lambda_value sea un escalar
+        if isinstance(self.lambda_value, np.ndarray):
+            self.lambda_value = self.lambda_value.item()
+        # --- FIN CORRECCIÓN DE TIPO ---
 
-        self.valor_guardado_x = 0.0
-        self.valor_guardado_y = 0.0
-        self.valor_guardado_z = 0.0
+        if self.lambda_value == 0: # Evitar división por cero
+            self.lambda_value = 1.0
 
+        # Almacenar los valores de coordenadas
+        self.xs = xs
+        self.ys = ys 
+        self.zs = zs
+       
+        # Almacenar los rangos de coordenadas originales (en metros)
+        self.x = x
+        self.y = y
+        self.z = z
+
+        # Almacenar la data general para el grafico de la amplitud
+        self.data = data 
+        self.mi_lineedit = self.ui.InputIndex
+        self.valor_guardado = 0 
+
+        # Configurar estado inicial de los controles
         self.ui.combbsimu.setEnabled(False)
         self.ui.InputIndex.setEnabled(False)
         self.ui.buttonTable.setEnabled(False)
         self.ui.buttonGraph.setEnabled(False)
-        self.ui.buttonTable.clicked.connect(self._open_table_dialog)
+        self.ui.buttonTable.clicked.connect(self.open_table_dialog)
+       
+        # Configurar los lienzos de Matplotlib ANTES de conectar señales
+        self.setup_matplotlib_canvases()
 
-        self._setup_matplotlib_canvases()
+        # Conectar el signal de cambio de selección
+        self.ui.combbprincipal.currentIndexChanged.connect(self.on_combobox_changed)
+        self.ui.InputIndex.textChanged.connect(self.on_input_index_changed)
+        self.ui.InputIndey.textChanged.connect(self.on_input_index_changed)
+        self.ui.InputIndez.textChanged.connect(self.on_input_index_changed)
 
-        self._mode_combo.currentIndexChanged.connect(self._on_mode_changed)
-        self.ui.InputIndex.textChanged.connect(self._on_input_index_changed)
-        self.ui.InputIndey.textChanged.connect(self._on_input_index_changed)
-        self.ui.InputIndez.textChanged.connect(self._on_input_index_changed)
-        self.ui.buttonGraph.clicked.connect(self._update_manual_graphs)
+        # Connect the Graph button click to the update_manual_graphs function
+        self.ui.buttonGraph.clicked.connect(self.update_manual_graphs)
 
-        self._simu_connection = None
-        self._populate_simulation_points()
+        # Store the connection to safely disconnect later
+        self.simu_connection = None
 
-        if hasattr(self.ui, 'InputZoom'):
-            self.ui.InputZoom.editingFinished.connect(self._update_zoom_window)
+        # Populate simulation points
+        self.populate_simulation_points()
+
+        # Inicialización del zoom DEBE ir ANTES de llamar a on_combobox_changed
+        self.zoom_window = 4.0 # El zoom siempre se define en mm
+        if hasattr(self.ui, 'InputZoom'): 
+            self.ui.InputZoom.editingFinished.connect(self.update_zoom_window)
         else:
-            print("ADVERTENCIA: 'self.ui.InputZoom'.")
+            print("ADVERTENCIA: No se encontró 'self.ui.InputZoom'. Usando zoom fijo de 4.0")
 
-        self._on_mode_changed(self._mode_combo.currentIndex())
+        # Llamar al método inicialmente para configurar el estado correcto
+        self.on_combobox_changed(self.ui.combbprincipal.currentIndex()) 
 
-    # ------------------------------------------------------------- canvas
-    def _setup_matplotlib_canvases(self):
-        """Configurar lienzos de Matplotlib para X, Y, Z con NavigationToolbar"""
-        self.figure_x = Figure(figsize=(5, 4), dpi=100)
-        self.canvas_x = FigureCanvas(self.figure_x)
-        self.toolbar_x = NavigationToolbar2QT(self.canvas_x, self.ui.FrameX)
-        layout_x = QVBoxLayout(self.ui.FrameX)
-        layout_x.addWidget(self.toolbar_x)
-        layout_x.addWidget(self.canvas_x)
+    def on_normalize_changed(self):
+        """
+        Se llama cuando el estado de self.ui.checkBox cambia.
+        Vuelve a dibujar los gráficos actuales con la nueva configuración de normalización.
+        """
+        choice = self.ui.combbprincipal.currentText()
+        
+        if choice == "Simulation peaks ":
+            if hasattr(self, 'simu_connection') and self.simu_connection:
+                current_index = self.ui.combbsimu.currentIndex()
+                if current_index >= 0:
+                    self.simu_connection(current_index)
+                    
+        elif choice == "Manual input ":
+            self.update_manual_graphs()
+            
+    def on_units_changed(self):
+        """
+        Se llama cuando el estado de self.ui.checkunits cambia.
+        Vuelve a dibujar los gráficos actuales con la nueva configuración de unidades.
+        """
+        # El FWHM en la tabla también debe actualizarse
+        if self.ui.combbprincipal.currentText() == "Simulation peaks ":
+            if hasattr(self, 'simu_connection') and self.simu_connection:
+                current_index = self.ui.combbsimu.currentIndex()
+                if current_index >= 0:
+                    self.simu_connection(current_index)
+                    
+        elif self.ui.combbprincipal.currentText() == "Manual input ":
+            self.update_manual_graphs()
+    
+    def _get_plot_coords_and_labels(self):
+        """
+        Devuelve (x_coords, y_coords, z_coords, xlabel, ylabel, zlabel)
+        basado en el estado de self.ui.checkunits.
+        Los ejes de coordenadas (self.x, self.y, self.z) están en METROS.
+        lambda_value está en METROS.
+        """
+        if hasattr(self.ui, 'checkunits') and self.ui.checkunits.isChecked():
+            # --- Unidades LAMBDA ---
+            # (self.x / self.lambda_value) nos da la coordenada en lambda
+            x_coords = self.x.flatten() / self.lambda_value
+            y_coords = self.y.flatten() / self.lambda_value
+            z_coords = self.z.flatten() / self.lambda_value
+            
+            xlabel = r'X ($\lambda$)'
+            ylabel = r'Y ($\lambda$)'
+            zlabel = r'Z ($\lambda$)'
+        else:
+            # --- Unidades MM (Default) ---
+            x_coords = self.x.flatten() * 1000.0
+            y_coords = self.y.flatten() * 1000.0
+            z_coords = self.z.flatten() * 1000.0
+            xlabel = 'X (mm)'
+            ylabel = 'Y (mm)'
+            zlabel = 'Z (mm)'
+            
+        return x_coords, y_coords, z_coords, xlabel, ylabel, zlabel
 
-        self.figure_y = Figure(figsize=(5, 4), dpi=100)
-        self.canvas_y = FigureCanvas(self.figure_y)
-        self.toolbar_y = NavigationToolbar2QT(self.canvas_y, self.ui.FrameY)
-        layout_y = QVBoxLayout(self.ui.FrameY)
-        layout_y.addWidget(self.toolbar_y)
-        layout_y.addWidget(self.canvas_y)
-
-        self.figure_z = Figure(figsize=(5, 4), dpi=100)
-        self.canvas_z = FigureCanvas(self.figure_z)
-        self.toolbar_z = NavigationToolbar2QT(self.canvas_z, self.ui.FrameZ)
-        layout_z = QVBoxLayout(self.ui.FrameZ)
-        layout_z.addWidget(self.toolbar_z)
-        layout_z.addWidget(self.canvas_z)
-
-        self.figure_x.set_tight_layout(True)
-        self.figure_y.set_tight_layout(True)
-        self.figure_z.set_tight_layout(True)
-
-    # --------------------------------------------------------- unidades
-    def _units_are_lambda(self):
-        return hasattr(self.ui, 'checkunits') and self.ui.checkunits.isChecked()
-
-    def _get_axis_labels(self):
-        if self._units_are_lambda():
-            return r'X ($\lambda$)', r'Y ($\lambda$)', r'Z ($\lambda$)'
-        return 'X (mm)', 'Y (mm)', 'Z (mm)'
-
-    def _get_source_coords(self, src):
-        """Coordenadas x,y,z de una fuente ya escaladas a la unidad actual."""
-        if self._units_are_lambda():
-            lv = src['lambda_value']
-            return (src['x'].flatten() / lv,
-                    src['y'].flatten() / lv,
-                    src['z'].flatten() / lv)
-        return (src['x'].flatten() * 1000.0,
-                src['y'].flatten() * 1000.0,
-                src['z'].flatten() * 1000.0)
-
-    def _scale_factor(self, lambda_value):
-        """Factor para convertir mm -> unidad actual (mm o lambda)."""
-        if self._units_are_lambda():
-            return 1.0 / (lambda_value * 1000.0)
-        return 1.0
-
-    # ----------------------------------------------------- puntos simulados
-    def _populate_simulation_points(self):
+    def populate_simulation_points(self):
         self.ui.combbsimu.clear()
 
-        for src in self.sources:
-            for key in ('xs', 'ys', 'zs'):
-                val = src.get(key)
-                if val is not None:
-                    src[key] = np.array(val).flatten()
+        # Desanidar xs si es un array de NumPy con una sola fila
+        if isinstance(self.xs, np.ndarray):
+            self.xs = self.xs.flatten().tolist()
+        elif isinstance(self.xs, list) and len(self.xs) == 1 and isinstance(self.xs[0], (list, np.ndarray)):
+            self.xs = list(self.xs[0])  # Extraer lista interna si está anidada
+   
+        # Verificar si xs tiene elementos
+        if self.xs and len(self.xs) > 0:
+            for index in range(len(self.xs)):
+                # print(f"Iteración {index}: {self.xs[index]}")  # Depuración
+                point_text = f"Point {index}"
+                self.ui.combbsimu.addItem(point_text)
 
-        # Usar como referencia la primera fuente que sí tenga scatterers
-        ref = next((s for s in self.sources if s.get('xs') is not None), None)
-        n_points = len(ref['xs']) if ref is not None else 0
-        for index in range(n_points):
-            self.ui.combbsimu.addItem(f"Point {index}")
-
-    def _ensure_pixel_indices(self, src):
-        """Calcula xs_pixels/ys_pixels/zs_pixels para una fuente (o None si no aplica)."""
-        if src.get('xs') is None or src.get('x') is None:
-            src['xs_pixels'] = None
-            return
-        x, y, z = src['x'], src['y'], src['z']
-        src['xs_pixels'] = np.round(np.interp(
-            src['xs'], (x.min(), x.max()), (0, x.shape[0] - 1))).astype(int)
-        src['ys_pixels'] = np.round(np.interp(
-            src['ys'], (y.min(), y.max()), (0, y.shape[0] - 1))).astype(int)
-        src['zs_pixels'] = np.round(np.interp(
-            src['zs'], (z.min(), z.max()), (0, z.shape[0] - 1))).astype(int)
-
-    # ------------------------------------------------------------- inputs
-    def _on_input_index_changed(self):
-        """Actualiza el valor cuando el usuario cambia el texto manual (siempre en mm)."""
+    def on_input_index_changed(self):
+        """Actualiza el valor cuando el usuario cambia el texto en InputIndex."""
         try:
+            # El input manual siempre se asume en MILÍMETROS
             self.valor_guardado_x = float(self.ui.InputIndex.text().strip())
         except ValueError:
             self.valor_guardado_x = 0.0
+            
         try:
             self.valor_guardado_y = float(self.ui.InputIndey.text().strip())
         except ValueError:
             self.valor_guardado_y = 0.0
+
         try:
             self.valor_guardado_z = float(self.ui.InputIndez.text().strip())
         except ValueError:
             self.valor_guardado_z = 0.0
 
-    def _update_zoom_window(self):
-        if not hasattr(self.ui, 'InputZoom'):
-            return
-        texto = self.ui.InputZoom.text().strip()
-        try:
-            valor = float(texto)
-            if valor <= 0:
-                raise ValueError
-            self.zoom_window = valor
-        except ValueError:
-            QMessageBox.warning(self, "Wrong number", "The value must be positive.")
-            self.ui.InputZoom.setText(str(self.zoom_window))
-            return
-
-        if self._mode_combo.currentText() == "Simulation peaks " and self.ui.combbsimu.isEnabled():
-            idx = self.ui.combbsimu.currentIndex()
-            if self._simu_connection is not None:
-                self._simu_connection(idx)
-
-    def _on_normalize_or_units_changed(self):
-        """Redibuja los gráficos actuales cuando cambia normalización o unidades."""
-        choice = self._mode_combo.currentText()
-        if choice == "Simulation peaks ":
-            if self._simu_connection is not None:
-                idx = self.ui.combbsimu.currentIndex()
-                if idx >= 0:
-                    self._simu_connection(idx)
-        elif choice == "Manual input ":
-            self._update_manual_graphs()
-
-    # ------------------------------------------------------------ FWHM
+    
     def find_fwhm_points(self, profile, axis):
         """
-        Devuelve: extremo izquierdo (mm), extremo derecho (mm), FWHM (mm),
-        nivel half-power (dB). 'axis' debe estar en metros.
+        Devuelve:
+          - extremo izquierdo (mm)
+          - extremo derecho (mm)
+          - FWHM (mm)
+          - nivel half-power (dB)
+        NOTA: 'axis' DEBE estar en metros. La función devuelve todo en mm.
         """
         profile = np.array(profile)
-        axis = np.array(axis).flatten()
+        axis = np.array(axis).flatten() # Eje en metros
         max_idx = np.argmax(profile)
         max_value = profile[max_idx]
         half_power_db = max_value - 6
 
+        # Buscar punto a la izquierda
         left_idx = max_idx
         while left_idx > 0 and profile[left_idx - 1] > half_power_db:
             left_idx -= 1
+        # Buscar punto a la derecha
         right_idx = max_idx
         while right_idx < len(profile) - 1 and profile[right_idx + 1] > half_power_db:
             right_idx += 1
 
         def interpolate_point(idx1, idx2):
             if idx1 < 0 or idx1 >= len(axis) or idx2 < 0 or idx2 >= len(axis):
-                return axis[max_idx]
+                return axis[max_idx] # Fallback
             if idx1 >= len(profile) or idx2 >= len(profile):
-                return axis[max_idx]
-            x1_m, y1 = axis[idx1], profile[idx1]
-            x2_m, y2 = axis[idx2], profile[idx2]
+                 return axis[max_idx] # Fallback
+                 
+            x1_m, y1 = axis[idx1], profile[idx1] # x1 está en metros
+            x2_m, y2 = axis[idx2], profile[idx2] # x2 está en metros
             if y1 == y2:
                 return x1_m
+            # Interpola para encontrar la coordenada en METROS
             return x1_m + (half_power_db - y1) * (x2_m - x1_m) / (y2 - y1)
 
         if left_idx > 0:
@@ -927,82 +915,288 @@ class ProfilePlotMixin:
             right_x_m = interpolate_point(right_idx, right_idx + 1)
         else:
             right_x_m = axis[right_idx]
-
+            
         fwhm_m = abs(right_x_m - left_x_m)
+        
+        # Devuelve todo en milímetros
         return left_x_m * 1000.0, right_x_m * 1000.0, fwhm_m * 1000.0, half_power_db
 
-    @staticmethod
-    def _find_peaks_and_values(profile):
-        max_value = np.max(profile)
-        min_value = np.min(profile)
-        signal_range = max_value - min_value
+    def calculate_all_fwhms(self):
+        # Calcula FWHM para todos los puntos de simulación
+        fwhm_list = []
+        
+        # Determinar el factor de escala y la unidad
+        if hasattr(self.ui, 'checkunits') and self.ui.checkunits.isChecked():
+            # de mm a lambda. (self.lambda_value * 1000.0) es lambda en mm
+            scale_factor = 1.0 / (self.lambda_value * 1000.0) 
+        else:
+            scale_factor = 1.0 # de mm a mm
+            
+        for idx in range(len(self.xs_pixels)):
+            x_profile = self.data[:, self.ys_pixels[idx], self.zs_pixels[idx]]
+            y_profile = self.data[self.xs_pixels[idx], :, self.zs_pixels[idx]]
+            z_profile = self.data[self.xs_pixels[idx], self.ys_pixels[idx], :]
+            
+            # Aplicar normalización si es necesario ANTES de calcular FWHM
+            if hasattr(self.ui, 'checkBox') and self.ui.checkBox.isChecked():
+                if x_profile.size > 0: x_profile = x_profile - np.max(x_profile)
+                if y_profile.size > 0: y_profile = y_profile - np.max(y_profile)
+                if z_profile.size > 0: z_profile = z_profile - np.max(z_profile)
 
-        if signal_range == 0:
-            return np.array([np.argmax(profile)]), [profile[np.argmax(profile)]]
+            # find_fwhm_points devuelve FWHM en mm
+            _, _, fwhm_x_mm, _ = self.find_fwhm_points(x_profile, self.x)
+            _, _, fwhm_y_mm, _ = self.find_fwhm_points(y_profile, self.y)
+            _, _, fwhm_z_mm, _ = self.find_fwhm_points(z_profile, self.z)
+            
+            # Escalar FWHM según la unidad seleccionada
+            fwhm_x = fwhm_x_mm * scale_factor
+            fwhm_y = fwhm_y_mm * scale_factor
+            fwhm_z = fwhm_z_mm * scale_factor
+            
+            fwhm_list.append((idx, fwhm_x, fwhm_y, fwhm_z))
+            
+        return fwhm_list     
+            
+    def setup_matplotlib_canvases(self):
+        """Configurar lienzos de Matplotlib para X, Y, Z con NavigationToolbar"""
+        # Para el frame X
+        self.figure_x = Figure(figsize=(5, 4), dpi=100)
+        self.canvas_x = FigureCanvas(self.figure_x)
+        self.toolbar_x = NavigationToolbar2QT(self.canvas_x, self.ui.FrameX)
+        layout_x = QVBoxLayout(self.ui.FrameX)
+        layout_x.addWidget(self.toolbar_x)
+        layout_x.addWidget(self.canvas_x)
 
-        adaptive_prominence = signal_range * 0.1
-        height_threshold = min_value + signal_range * 0.1
-        peaks, _ = find_peaks(profile, prominence=adaptive_prominence,
-                               height=height_threshold, distance=10)
-        if len(peaks) == 0:
-            adaptive_prominence = signal_range * 0.05
-            height_threshold = min_value + signal_range * 0.05
-            peaks, _ = find_peaks(profile, prominence=adaptive_prominence,
-                                   height=height_threshold, distance=5)
-        if len(peaks) == 0:
-            peaks = np.array([np.argmax(profile)])
+        # Para el frame Y
+        self.figure_y = Figure(figsize=(5, 4), dpi=100)
+        self.canvas_y = FigureCanvas(self.figure_y)
+        self.toolbar_y = NavigationToolbar2QT(self.canvas_y, self.ui.FrameY)
+        layout_y = QVBoxLayout(self.ui.FrameY)
+        layout_y.addWidget(self.toolbar_y)
+        layout_y.addWidget(self.canvas_y)
 
-        peak_values = profile[peaks]
-        order = np.argsort(peak_values)[::-1]
-        peaks = peaks[order][:5]
-        return peaks, [profile[p] for p in peaks]
+        # Para el frame Z
+        self.figure_z = Figure(figsize=(5, 4), dpi=100)
+        self.canvas_z = FigureCanvas(self.figure_z)
+        self.toolbar_z = NavigationToolbar2QT(self.canvas_z, self.ui.FrameZ)
+        layout_z = QVBoxLayout(self.ui.FrameZ)
+        layout_z.addWidget(self.toolbar_z)
+        layout_z.addWidget(self.canvas_z)
 
-    # ------------------------------------------------------- modo (combo)
-    def _on_mode_changed(self, index):
-        choice = self._mode_combo.currentText()
+        # Configuración de layouts
+        self.figure_x.set_tight_layout(True)
+        self.figure_y.set_tight_layout(True)
+        self.figure_z.set_tight_layout(True)
+        
+    def update_zoom_window(self):
+        # Asegurarse de que InputZoom existe antes de usarlo
+        if not hasattr(self.ui, 'InputZoom'):
+            return
+            
+        texto = self.ui.InputZoom.text().strip()
+        try:
+            valor = float(texto)
+            if valor <= 0:
+                raise ValueError
+            self.zoom_window = valor # Zoom window siempre se guarda en mm
+        except ValueError:
+            QMessageBox.warning(self, "Wrong number", "The value must be positive.")
+            self.ui.InputZoom.setText(str(self.zoom_window))
+            return
 
+        # Actualiza el gráfico según la pestaña activa
+        if self.ui.combbprincipal.currentText() == "Simulation peaks " and self.ui.combbsimu.isEnabled():
+            idx = self.ui.combbsimu.currentIndex()
+            # Vuelve a graficar el perfil seleccionado
+            if hasattr(self, 'simu_connection'):
+                self.simu_connection(idx)  
+
+    def on_combobox_changed(self, index):
+        # Obtener el texto seleccionado
+        choice = self.ui.combbprincipal.currentText()
+
+        # Limpiar figuras anteriores
         self.figure_x.clear()
         self.figure_y.clear()
         self.figure_z.clear()
-        self.canvas_x.draw()
-        self.canvas_y.draw()
-        self.canvas_z.draw()
 
+        # Deshabilitar todos los controles primero
         self.ui.combbsimu.setEnabled(False)
         self.ui.InputIndex.setEnabled(False)
         self.ui.InputIndey.setEnabled(False)
         self.ui.InputIndez.setEnabled(False)
+        
+        # Deshabilitar InputZoom si existe
         if hasattr(self.ui, 'InputZoom'):
             self.ui.InputZoom.setEnabled(False)
 
+
+        # Habilitar controles basados en la selección
         if choice == "Simulation peaks ":
             self.ui.combbsimu.setEnabled(True)
             self.ui.buttonTable.setEnabled(True)
             self.ui.buttonGraph.setEnabled(False)
+            
+            # Habilitar InputZoom si existe
             if hasattr(self.ui, 'InputZoom'):
                 self.ui.InputZoom.setEnabled(True)
+            
+            # Mapear coordenadas si se proporcionan rangos originales
+            if self.x is not None and self.y is not None and self.z is not None:
+                # Asegurar que xs, ys, zs sean arrays planos (1D)
+                if self.xs is None:
+                    QMessageBox.warning(self, "Error", "Simulation peaks (xs) not found in .mat file.")
+                    return
+                self.xs = np.array(self.xs).flatten()
+                self.ys = np.array(self.ys).flatten()
+                self.zs = np.array(self.zs).flatten()
+                
+                # Calcular los índices de píxeles correspondientes a las coordenadas reales
+                # (self.x, y, z están en metros)
+                self.xs_pixels = np.interp(self.xs, (self.x.min(), self.x.max()), (0, self.x.shape[0] - 1))
+                self.ys_pixels = np.interp(self.ys, (self.y.min(), self.y.max()), (0, self.y.shape[0] - 1))
+                self.zs_pixels = np.interp(self.zs, (self.z.min(), self.z.max()), (0, self.z.shape[0] - 1))
+                
+                self.xs_pixels = np.round(self.xs_pixels).astype(int)
+                self.ys_pixels = np.round(self.ys_pixels).astype(int)
+                self.zs_pixels = np.round(self.zs_pixels).astype(int)
 
-            valid = [s for s in self.sources if s.get('x') is not None and s.get('xs') is not None]
-            if not valid:
-                QMessageBox.critical(self, "Error",
-                    "Simulation peaks (xs) not available in any loaded file, "
-                    "or coordinate ranges (x, y, z) are missing.")
-                return
+                def update_profile_plots(point_index):
+                    # Graficar perfiles en X, Y, Z
+                    x_profile = self.data[:, self.ys_pixels[point_index], self.zs_pixels[point_index]]
+                    y_profile = self.data[self.xs_pixels[point_index], :, self.zs_pixels[point_index]]
+                    z_profile = self.data[self.xs_pixels[point_index], self.ys_pixels[point_index], :]
 
-            for src in self.sources:
-                self._ensure_pixel_indices(src)
+                    # Normalizar si el checkbox está activado
+                    if hasattr(self.ui, 'checkBox') and self.ui.checkBox.isChecked():
+                        if x_profile.size > 0:
+                            x_profile = x_profile - np.max(x_profile)
+                        if y_profile.size > 0:
+                            y_profile = y_profile - np.max(y_profile)
+                        if z_profile.size > 0:
+                            z_profile = z_profile - np.max(z_profile)
 
-            if self._simu_connection is not None:
-                try:
-                    self.ui.combbsimu.currentIndexChanged.disconnect(self._simu_connection)
-                except TypeError:
-                    pass
+                    # Encontrar los picos máximos
+                    x_max_idx = np.argmax(x_profile)
+                    y_max_idx = np.argmax(y_profile)
+                    z_max_idx = np.argmax(z_profile)
 
-            self._simu_connection = lambda idx: self._update_profile_plots_from_index(idx)
-            self.ui.combbsimu.currentIndexChanged.connect(self._simu_connection)
+                    # Limpiar figuras anteriores
+                    self.figure_x.clear()
+                    self.figure_y.clear()
+                    self.figure_z.clear()
 
-            if self.ui.combbsimu.count() > 0:
-                self._simu_connection(0)
+                    # Obtener coordenadas y etiquetas según el checkbox de unidades
+                    x_coords, y_coords, z_coords, xlabel, ylabel, zlabel = self._get_plot_coords_and_labels()
+                    
+                    # Calcular FWHM (siempre se calcula en mm por la función, usando ejes en metros)
+                    left_x_mm, right_x_mm, fwhm_x_mm, half_power_x = self.find_fwhm_points(x_profile, self.x)
+                    left_y_mm, right_y_mm, fwhm_y_mm, half_power_y = self.find_fwhm_points(y_profile, self.y)
+                    left_z_mm, right_z_mm, fwhm_z_mm, half_power_z = self.find_fwhm_points(z_profile, self.z)
+
+                    # Determinar el factor de escala y la unidad del título
+                    if hasattr(self.ui, 'checkunits') and self.ui.checkunits.isChecked():
+                        scale_factor = 1.0 / (self.lambda_value * 1000.0) # de mm a lambda
+                        unit_label = r'$\lambda$'
+                    else:
+                        scale_factor = 1.0 # de mm a mm
+                        unit_label = 'mm'
+
+
+                    # --- Gráfico de perfil X ---
+                    ax_x = self.figure_x.add_subplot(111)
+                    ax_x.plot(x_coords, x_profile) # x_coords ya está en mm o lambda
+                    
+                    # Escalar puntos
+                    peak_x_scaled = x_coords[x_max_idx]
+                    left_x_scaled = left_x_mm * scale_factor
+                    right_x_scaled = right_x_mm * scale_factor
+                    fwhm_x_scaled = fwhm_x_mm * scale_factor
+                    
+                    ax_x.plot(peak_x_scaled, x_profile[x_max_idx], 'ro')
+                    ax_x.plot([left_x_scaled, right_x_scaled], [half_power_x, half_power_x], 'm--')
+                    ax_x.plot([left_x_scaled], [half_power_x], 'mv')
+                    ax_x.plot([right_x_scaled], [half_power_x], 'mv')
+                    
+                    x_center_scaled = x_coords[x_max_idx]
+                    
+                    # El zoom window (self.zoom_window) está en mm. Debo escalarlo.
+                    zoom_window_scaled = self.zoom_window * scale_factor
+                    
+                    ax_x.set_xlim(x_center_scaled - zoom_window_scaled, x_center_scaled + zoom_window_scaled)
+                    ax_x.set_title(f'X Profile (FWHM = {fwhm_x_scaled:.3f} {unit_label})')
+                    ax_x.set_xlabel(xlabel)
+                    ax_x.set_ylabel('Amplitude (dB)')
+                    ax_x.grid(True)
+                    self.canvas_x.draw()
+
+                    # --- Gráfico de perfil Y ---
+                    ax_y = self.figure_y.add_subplot(111)
+                    ax_y.plot(y_coords, y_profile)
+
+                    # Escalar puntos
+                    peak_y_scaled = y_coords[y_max_idx]
+                    left_y_scaled = left_y_mm * scale_factor
+                    right_y_scaled = right_y_mm * scale_factor
+                    fwhm_y_scaled = fwhm_y_mm * scale_factor
+                    
+                    ax_y.plot(peak_y_scaled, y_profile[y_max_idx], 'ro')
+                    ax_y.plot([left_y_scaled, right_y_scaled], [half_power_y, half_power_y], 'm--')
+                    ax_y.plot([left_y_scaled], [half_power_y], 'mv')
+                    ax_y.plot([right_y_scaled], [half_power_y], 'mv')
+                    
+                    y_center_scaled = y_coords[y_max_idx]
+                    zoom_window_scaled = self.zoom_window * scale_factor # Re-calculado por claridad
+                    
+                    ax_y.set_xlim(y_center_scaled - zoom_window_scaled, y_center_scaled + zoom_window_scaled)
+                    ax_y.set_title(f'Y Profile (FWHM = {fwhm_y_scaled:.3f} {unit_label})')
+                    ax_y.set_xlabel(ylabel)
+                    ax_y.set_ylabel('Amplitude (dB)')
+                    ax_y.grid(True)
+                    self.canvas_y.draw()
+                    
+                    # --- Gráfico de perfil Z ---
+                    ax_z = self.figure_z.add_subplot(111)
+                    ax_z.plot(z_coords, z_profile)
+
+                    # Escalar puntos
+                    peak_z_scaled = z_coords[z_max_idx]
+                    left_z_scaled = left_z_mm * scale_factor
+                    right_z_scaled = right_z_mm * scale_factor
+                    fwhm_z_scaled = fwhm_z_mm * scale_factor
+
+                    ax_z.plot(peak_z_scaled, z_profile[z_max_idx], 'ro')
+                    ax_z.plot([left_z_scaled, right_z_scaled], [half_power_z, half_power_z], 'm--')
+                    ax_z.plot([left_z_scaled], [half_power_z], 'mv')
+                    ax_z.plot([right_z_scaled], [half_power_z], 'mv')
+                    
+                    z_center_scaled = z_coords[z_max_idx]
+                    zoom_window_scaled = self.zoom_window * scale_factor # Re-calculado por claridad
+                    
+                    ax_z.set_xlim(z_center_scaled - zoom_window_scaled, z_center_scaled + zoom_window_scaled)
+                    ax_z.set_title(f'Z Profile (FWHM = {fwhm_z_scaled:.3f} {unit_label})')
+                    ax_z.set_xlabel(zlabel)
+                    ax_z.set_ylabel('Amplitude (dB)')
+                    ax_z.grid(True)
+                    self.canvas_z.draw()
+
+                # Disconnect previous connection if it exists
+                if self.simu_connection is not None:
+                    try:
+                        self.ui.combbsimu.currentIndexChanged.disconnect(self.simu_connection)
+                    except TypeError:
+                        pass  # No connection exists or already disconnected
+
+                # Connect new signal and store the connection
+                self.simu_connection = lambda index: update_profile_plots(index)
+                self.ui.combbsimu.currentIndexChanged.connect(self.simu_connection)
+                
+                # Llamar una vez para graficar el primer punto
+                if self.ui.combbsimu.count() > 0:
+                    self.simu_connection(0)
+
+            else:
+                QMessageBox.critical(self, "Error", "Coordinate ranges not available (self.x, self.y, or self.z is None)")
 
         elif choice == "Manual input ":
             self.ui.InputIndex.setEnabled(True)
@@ -1010,358 +1204,289 @@ class ProfilePlotMixin:
             self.ui.InputIndez.setEnabled(True)
             self.ui.buttonGraph.setEnabled(True)
             self.ui.buttonTable.setEnabled(False)
-
+            # InputZoom permanece deshabilitado (configurado al inicio de la función)
+    
             try:
+                # Intentar convertir el texto actual a float (siempre en mm)
                 current_text_x = self.ui.InputIndex.text().strip()
                 self.valor_guardado_x = float(current_text_x) if current_text_x else 0.0
+                
                 current_text_y = self.ui.InputIndey.text().strip()
                 self.valor_guardado_y = float(current_text_y) if current_text_y else 0.0
+                
                 current_text_z = self.ui.InputIndez.text().strip()
                 self.valor_guardado_z = float(current_text_z) if current_text_z else 0.0
+                
             except ValueError:
+                # Si la conversión falla, establecer un valor predeterminado
                 self.valor_guardado_x = 0.0
                 self.valor_guardado_y = 0.0
                 self.valor_guardado_z = 0.0
                 self.ui.InputIndex.setText('0')
                 self.ui.InputIndey.setText('0')
                 self.ui.InputIndez.setText('0')
-
-            if any(s.get('data') is not None and s.get('x') is not None for s in self.sources):
-                self._update_manual_graphs()
-
+            
+            # Call the update_manual_graphs method to display initial graphs
+            if self.data is not None and self.x is not None:
+                self.update_manual_graphs()
+        
         elif choice == "Find peaks ":
+            # self.find_peaks_graph() # Esta función no está definida, la comento
+            print("Find peaks no implementado")
             pass
 
-    # --------------------------------------------------- perfiles (picos)
-    def _update_profile_plots_from_index(self, point_index):
-        """Modo 'Simulation peaks': dibuja el perfil del punto seleccionado
-        para todas las fuentes que tengan ese índice disponible."""
-        entries = []
-        for src in self.sources:
-            xp = src.get('xs_pixels')
-            if xp is None or point_index >= len(xp):
-                continue
-            ix = src['xs_pixels'][point_index]
-            iy = src['ys_pixels'][point_index]
-            iz = src['zs_pixels'][point_index]
-
-            x_profile = src['data'][:, iy, iz]
-            y_profile = src['data'][ix, :, iz]
-            z_profile = src['data'][ix, iy, :]
-
-            if hasattr(self.ui, 'checkBox') and self.ui.checkBox.isChecked():
-                if x_profile.size > 0: x_profile = x_profile - np.max(x_profile)
-                if y_profile.size > 0: y_profile = y_profile - np.max(y_profile)
-                if z_profile.size > 0: z_profile = z_profile - np.max(z_profile)
-
-            xc, yc, zc = self._get_source_coords(src)
-            entries.append((src, {
-                'x_coords': xc, 'x_profile': x_profile,
-                'y_coords': yc, 'y_profile': y_profile,
-                'z_coords': zc, 'z_profile': z_profile,
-            }))
-
-        if not entries:
-            return
-        self._draw_profiles(entries, mode='fwhm')
-
-    # -------------------------------------------------- perfiles (manual)
-    def _update_manual_graphs(self):
-        """Modo 'Manual input': dibuja el perfil en (x_mm, y_mm, z_mm) para
-        todas las fuentes cuyo rango de coordenadas lo permita."""
-        x_mm = self.valor_guardado_x
-        y_mm = self.valor_guardado_y
-        z_mm = self.valor_guardado_z
-
-        entries = []
-        warnings = []
-
-        for src in self.sources:
-            if src.get('data') is None or src.get('x') is None or src.get('y') is None or src.get('z') is None:
-                continue
-
-            x_range_mm = (src['x'].flatten().min() * 1000, src['x'].flatten().max() * 1000)
-            y_range_mm = (src['y'].flatten().min() * 1000, src['y'].flatten().max() * 1000)
-            z_range_mm = (src['z'].flatten().min() * 1000, src['z'].flatten().max() * 1000)
-
-            out_of_range = []
-            if not (x_range_mm[0] <= x_mm <= x_range_mm[1]):
-                out_of_range.append(f"X ({x_mm:.2f} mm) out of range [{x_range_mm[0]:.2f}, {x_range_mm[1]:.2f}] mm")
-            if not (y_range_mm[0] <= y_mm <= y_range_mm[1]):
-                out_of_range.append(f"Y ({y_mm:.2f} mm) out of range [{y_range_mm[0]:.2f}, {y_range_mm[1]:.2f}] mm")
-            if not (z_range_mm[0] <= z_mm <= z_range_mm[1]):
-                out_of_range.append(f"Z ({z_mm:.2f} mm) out of range [{z_range_mm[0]:.2f}, {z_range_mm[1]:.2f}] mm")
-
-            if out_of_range:
-                warnings.append(f"{src.get('label', 'File')}: " + "; ".join(out_of_range))
-                continue
-
-            x_m, y_m, z_m = x_mm / 1000.0, y_mm / 1000.0, z_mm / 1000.0
-            x_index = int(np.interp(x_m, src['x'].flatten(), np.arange(src['data'].shape[0])))
-            y_index = int(np.interp(y_m, src['y'].flatten(), np.arange(src['data'].shape[1])))
-            z_index = int(np.interp(z_m, src['z'].flatten(), np.arange(src['data'].shape[2])))
-
-            x_profile = src['data'][:, y_index, z_index]
-            y_profile = src['data'][x_index, :, z_index]
-            z_profile = src['data'][x_index, y_index, :]
-
-            if hasattr(self.ui, 'checkBox') and self.ui.checkBox.isChecked():
-                if x_profile.size > 0: x_profile = x_profile - np.max(x_profile)
-                if y_profile.size > 0: y_profile = y_profile - np.max(y_profile)
-                if z_profile.size > 0: z_profile = z_profile - np.max(z_profile)
-
-            xc, yc, zc = self._get_source_coords(src)
-            entries.append((src, {
-                'x_coords': xc, 'x_profile': x_profile,
-                'y_coords': yc, 'y_profile': y_profile,
-                'z_coords': zc, 'z_profile': z_profile,
-            }))
-
-        if warnings:
-            QMessageBox.warning(self, "Out of Range Error",
-                                 "Values out of range:\n" + "\n".join(warnings))
-        if not entries:
-            return
-
-        self._draw_profiles(
-            entries, mode='peaks',
-            title_x=f'X Profile at Y={y_mm:.2f}mm, Z={z_mm:.2f}mm',
-            title_y=f'Y Profile at X={x_mm:.2f}mm, Z={z_mm:.2f}mm',
-            title_z=f'Z Profile at X={x_mm:.2f}mm, Y={y_mm:.2f}mm',
-        )
-
-    # ------------------------------------------------------ dibujo (core)
-    def _draw_profiles(self, entries, mode, title_x=None, title_y=None, title_z=None):
-        """
-        entries: lista de (src, profile_dict) — profile_dict trae
-                 x_coords/x_profile, y_coords/y_profile, z_coords/z_profile.
-        mode: 'fwhm'  -> pico único + marcadores FWHM (Simulation peaks)
-              'peaks' -> múltiples picos anotados (Manual input)
-        Dibuja todas las fuentes superpuestas en los mismos ejes X/Y/Z.
-        """
-        self.figure_x.clear()
-        self.figure_y.clear()
-        self.figure_z.clear()
-
-        ax_x = self.figure_x.add_subplot(111)
-        ax_y = self.figure_y.add_subplot(111)
-        ax_z = self.figure_z.add_subplot(111)
-
-        xlabel, ylabel, zlabel = self._get_axis_labels()
-        unit_label = r'$\lambda$' if self._units_are_lambda() else 'mm'
-        multi = len(entries) > 1
-
-        self._pick_artists = {'x': [], 'y': [], 'z': []}
-        self._peak_info = {'x': [], 'y': [], 'z': []}
-
-        for axis_key, ax, axis_label, default_title in (
-            ('x', ax_x, xlabel, title_x),
-            ('y', ax_y, ylabel, title_y),
-            ('z', ax_z, zlabel, title_z),
-        ):
-            xlims = []
-            fwhm_titles = []
-
-            for src, prof in entries:
-                coords = prof[f'{axis_key}_coords']
-                profile = prof[f'{axis_key}_profile']
-                color = src.get('color')
-                label = src.get('label', 'File')
-
-                ax.plot(coords, profile, color=color, label=label if multi else None)
-
-                if mode == 'fwhm':
-                    axis_m = src[axis_key]
-                    left_mm, right_mm, fwhm_mm, half_power = self.find_fwhm_points(profile, axis_m)
-                    sf = self._scale_factor(src['lambda_value'])
-                    max_idx = int(np.argmax(profile))
-                    peak_scaled = coords[max_idx]
-                    left_s, right_s = left_mm * sf, right_mm * sf
-                    fwhm_s = fwhm_mm * sf
-
-                    dots, = ax.plot(peak_scaled, profile[max_idx], 'o', color=color, picker=5)
-                    ax.plot([left_s, right_s], [half_power, half_power], '--', color=color)
-                    ax.plot([left_s], [half_power], 'v', color=color)
-                    ax.plot([right_s], [half_power], 'v', color=color)
-
-                    self._pick_artists[axis_key].append(dots)
-                    self._peak_info[axis_key].append({
-                        'coords': np.array([peak_scaled]),
-                        'values': [profile[max_idx]],
-                        'label': label,
-                    })
-                    fwhm_titles.append(f"FWHM = {fwhm_s:.3f} {unit_label}" if multi
-                                        else f"FWHM = {fwhm_s:.3f} {unit_label}")
-
-                    zoom_s = self.zoom_window * sf
-                    xlims.append((peak_scaled - zoom_s, peak_scaled + zoom_s))
-                else:  # 'peaks'
-                    peaks, values = self._find_peaks_and_values(profile)
-                    peak_coords = coords[peaks]
-                    dots, = ax.plot(peak_coords, values, 'o', color=color, picker=5)
-                    for pc, v in zip(peak_coords, values):
-                        ax.annotate(f'{v:.1f}dB', (pc, v), xytext=(0, 10),
-                                    textcoords='offset points', ha='center',
-                                    fontsize=8, color=color)
-                    self._pick_artists[axis_key].append(dots)
-                    self._peak_info[axis_key].append({
-                        'coords': peak_coords, 'values': values, 'label': label,
-                    })
-
-            if mode == 'fwhm' and xlims:
-                ax.set_xlim(min(l for l, _ in xlims), max(h for _, h in xlims))
-                ax.set_title(f'{axis_key.upper()} Profile: ' + ' | '.join(fwhm_titles))
-            else:
-                ax.set_title(default_title or f'{axis_key.upper()} Profile')
-
-            ax.set_xlabel(axis_label)
-            ax.set_ylabel('Amplitude (dB)')
-            ax.grid(True)
-            if multi:
-                ax.legend(fontsize=8)
-
-        self.canvas_x.draw()
-        self.canvas_y.draw()
-        self.canvas_z.draw()
-        self._connect_pick_events()
-
-    def _connect_pick_events(self):
-        unit_label = r'$\lambda$' if self._units_are_lambda() else 'mm'
-        for axis_key, canvas_attr, cid_attr in (
-            ('x', 'canvas_x', '_xpick_cid'),
-            ('y', 'canvas_y', '_ypick_cid'),
-            ('z', 'canvas_z', '_zpick_cid'),
-        ):
-            canvas = getattr(self, canvas_attr)
-            old_cid = getattr(self, cid_attr, None)
-            if old_cid is not None:
-                try:
-                    canvas.mpl_disconnect(old_cid)
-                except Exception:
-                    pass
-
-            def make_handler(axis_key=axis_key, unit_label=unit_label):
-                def handler(event):
-                    artists = self._pick_artists.get(axis_key, [])
-                    if event.artist not in artists:
-                        return
-                    idx = artists.index(event.artist)
-                    info = self._peak_info[axis_key][idx]
-                    ind = event.ind[0]
-                    val_coord = info['coords'][ind]
-                    val_amp = info['values'][ind]
-                    QMessageBox.information(self, "Valor del punto",
-                        f"{info['label']} — Perfil {axis_key.upper()}\n"
-                        f"{axis_key.upper()} = {val_coord:.2f} {unit_label}\n"
-                        f"Amplitud = {val_amp:.2f} dB")
-                return handler
-
-            new_cid = canvas.mpl_connect('pick_event', make_handler())
-            setattr(self, cid_attr, new_cid)
-
-    # ------------------------------------------------------------- tabla
-    def _calculate_all_fwhms(self, src):
-        fwhm_list = []
-        sf = self._scale_factor(src['lambda_value'])
-        xs_pixels = src.get('xs_pixels')
-        if xs_pixels is None:
-            return fwhm_list
-
-        for idx in range(len(xs_pixels)):
-            x_profile = src['data'][:, src['ys_pixels'][idx], src['zs_pixels'][idx]]
-            y_profile = src['data'][src['xs_pixels'][idx], :, src['zs_pixels'][idx]]
-            z_profile = src['data'][src['xs_pixels'][idx], src['ys_pixels'][idx], :]
-
-            if hasattr(self.ui, 'checkBox') and self.ui.checkBox.isChecked():
-                if x_profile.size > 0: x_profile = x_profile - np.max(x_profile)
-                if y_profile.size > 0: y_profile = y_profile - np.max(y_profile)
-                if z_profile.size > 0: z_profile = z_profile - np.max(z_profile)
-
-            _, _, fwhm_x_mm, _ = self.find_fwhm_points(x_profile, src['x'])
-            _, _, fwhm_y_mm, _ = self.find_fwhm_points(y_profile, src['y'])
-            _, _, fwhm_z_mm, _ = self.find_fwhm_points(z_profile, src['z'])
-
-            fwhm_list.append((idx, fwhm_x_mm * sf, fwhm_y_mm * sf, fwhm_z_mm * sf))
-
-        return fwhm_list
-
-    def _open_table_dialog(self):
+    def update_manual_graphs(self):
+        """Update graphs based on the current manual input value"""
         try:
-            # Todas las fuentes que tengan puntos de simulación calculados
-            valid_sources = [s for s in self.sources if s.get('xs_pixels') is not None]
-            if not valid_sources:
-                QMessageBox.warning(self, "Error", "No simulation points loaded.")
-                return
+            # Los valores guardados están en milímetros
+            x_mm = self.valor_guardado_x
+            y_mm = self.valor_guardado_y
+            z_mm = self.valor_guardado_z
 
-            unit_label = r'($\lambda$)' if self._units_are_lambda() else '(mm)'
-            multi = len(valid_sources) > 1
+            # Verificar que el índice esté dentro de los límites de la matriz
+            if self.data is not None and self.x is not None and self.y is not None and self.z is not None:
+                # Obtener los rangos válidos en milímetros
+                x_range_mm = (self.x.flatten().min() * 1000, self.x.flatten().max() * 1000)
+                y_range_mm = (self.y.flatten().min() * 1000, self.y.flatten().max() * 1000)
+                z_range_mm = (self.z.flatten().min() * 1000, self.z.flatten().max() * 1000)
+                
+                # Verificar si algún valor está fuera de rango
+                error_messages = []
+                if not (x_range_mm[0] <= x_mm <= x_range_mm[1]):
+                    error_messages.append(f"X value ({x_mm:.2f} mm) is out of range [{x_range_mm[0]:.2f}, {x_range_mm[1]:.2f}] mm")
+                if not (y_range_mm[0] <= y_mm <= y_range_mm[1]):
+                    error_messages.append(f"Y value ({y_mm:.2f} mm) is out of range [{y_range_mm[0]:.2f}, {y_range_mm[1]:.2f}] mm")
+                if not (z_range_mm[0] <= z_mm <= z_range_mm[1]):
+                    error_messages.append(f"Z value ({z_mm:.2f} mm) is out of range [{z_range_mm[0]:.2f}, {z_range_mm[1]:.2f}] mm")
+                
+                # Si hay errores, mostrar mensaje y salir
+                if error_messages:
+                    error_text = "Input values out of range:\n" + "\n".join(error_messages)
+                    QMessageBox.warning(self, "Out of Range Error", error_text)
+                    return
 
-            # FWHM por fuente
-            per_source_fwhms = [self._calculate_all_fwhms(s) for s in valid_sources]
-            n_points = max(len(f) for f in per_source_fwhms)
+                # Si todos los valores están en rango, continuar con la interpolación
+                # Convertir de mm a metros para interpolar con self.x,y,z
+                x_m = x_mm / 1000.0
+                y_m = y_mm / 1000.0
+                z_m = z_mm / 1000.0
 
-            # Encabezados dinámicos, agrupados por EJE en vez de por
-            # archivo: X (archivo 1) - X (archivo 2) - Y (archivo 1) - ...
-            axis_names = ("X", "Y", "Z")
-            headers = ["Point No."]
-            for axis_name in axis_names:
-                for s in valid_sources:
-                    tag = f" — {s.get('label')}" if multi else ""
-                    headers.append(f"FWHM {axis_name} {unit_label}{tag}")
+                # Interpolar para obtener los índices
+                x_index = int(np.interp(x_m, 
+                                    self.x.flatten(), 
+                                    np.arange(self.data.shape[0])))
+                y_index = int(np.interp(y_m, 
+                                    self.y.flatten(), 
+                                    np.arange(self.data.shape[1])))
+                z_index = int(np.interp(z_m, 
+                                    self.z.flatten(), 
+                                    np.arange(self.data.shape[2])))
 
-            # Filas en el mismo orden por eje. Cada fwhm_list trae tuplas
-            # (punto, fwhm_x, fwhm_y, fwhm_z) -> índices 1, 2, 3 = X, Y, Z
-            rows = []
-            for idx in range(n_points):
-                row = [idx]
-                for axis_pos in (1, 2, 3):  # 1=X, 2=Y, 3=Z dentro de cada tupla
-                    for fwhm_list in per_source_fwhms:
-                        if idx < len(fwhm_list):
-                            row.append(fwhm_list[idx][axis_pos])
-                        else:
-                            row.append(None)
-                rows.append(tuple(row))
+                # Extraer perfiles de datos
+                x_profile = self.data[:, y_index, z_index]  # Perfil a lo largo del eje X
+                y_profile = self.data[x_index, :, z_index]  # Perfil a lo largo del eje Y
+                z_profile = self.data[x_index, y_index, :]  # Perfil a lo largo del eje Z
 
-            self.dlg = DialogWindow(self)
-            self.dlg.set_headers(headers)
-            if multi:
-                self.dlg.setWindowTitle("FWHM Comparison")
-            self.dlg.load_fwhm_table(rows)
+                # Normalizar si el checkbox está activado
+                if hasattr(self.ui, 'checkBox') and self.ui.checkBox.isChecked():
+                    if x_profile.size > 0:
+                        x_profile = x_profile - np.max(x_profile)
+                    if y_profile.size > 0:
+                        y_profile = y_profile - np.max(y_profile)
+                    if z_profile.size > 0:
+                        z_profile = z_profile - np.max(z_profile)
+
+                # Obtener coordenadas y etiquetas según el checkbox de unidades
+                x_coords, y_coords, z_coords, xlabel, ylabel, zlabel = self._get_plot_coords_and_labels()
+                unit_label = r'$\lambda$' if (hasattr(self.ui, 'checkunits') and self.ui.checkunits.isChecked()) else 'mm'
+
+                def find_peaks_and_values(profile):
+                    max_value = np.max(profile)
+                    min_value = np.min(profile)
+                    signal_range = max_value - min_value
+                    
+                    if signal_range == 0:
+                        return np.array([np.argmax(profile)]), [profile[np.argmax(profile)]]
+
+                    adaptive_prominence = signal_range * 0.1
+                    height_threshold = min_value + signal_range * 0.1
+
+                    peaks, properties = find_peaks(profile,
+                                                prominence=adaptive_prominence,
+                                                height=height_threshold,
+                                                distance=10)
+                    if len(peaks) == 0:
+                        adaptive_prominence = signal_range * 0.05
+                        height_threshold = min_value + signal_range * 0.05
+                        peaks, properties = find_peaks(profile,
+                                                    prominence=adaptive_prominence,
+                                                    height=height_threshold,
+                                                    distance=5)
+                    if len(peaks) == 0:
+                        peaks = np.array([np.argmax(profile)])
+
+                    peak_values = profile[peaks]
+                    sorted_indices = np.argsort(peak_values)[::-1]
+                    peaks = peaks[sorted_indices]
+                    peaks = peaks[:5]
+                    return peaks, [profile[peak] for peak in peaks]
+
+                # Limpiar gráficos anteriores
+                self.figure_x.clear()
+                self.figure_y.clear()
+                self.figure_z.clear()
+
+                # --- GUARDAR para callback ---
+                self._peak_data = {}
+
+                # Graficar perfil X con todos los picos
+                ax_x = self.figure_x.add_subplot(111)
+                ax_x.plot(x_coords, x_profile)
+                peaks_x, values_x = find_peaks_and_values(x_profile)
+                
+                # x_coords ya está en la unidad correcta (mm o lambda)
+                scaled_peak_coords_x = x_coords[peaks_x]
+                
+                red_dots_x = ax_x.plot(scaled_peak_coords_x, values_x, 'ro', picker=5)[0]
+                for i in range(len(peaks_x)):
+                    ax_x.annotate(f'{values_x[i]:.1f}dB', 
+                                (scaled_peak_coords_x[i], values_x[i]),
+                                xytext=(0, 10), 
+                                textcoords='offset points',
+                                ha='center',
+                                fontsize=8)
+                ax_x.set_title(f'X Profile at Y={y_mm:.2f}mm, Z={z_mm:.2f}mm') # El título siempre muestra la coordenada en mm
+                ax_x.set_xlabel(xlabel) # El eje X cambia
+                ax_x.set_ylabel('Amplitude (dB)')
+                ax_x.grid(True)
+                self.canvas_x.draw()
+                
+                # Guardar info para callback (ya está escalada)
+                self._peak_data['x'] = {
+                    'coords': scaled_peak_coords_x,
+                    'values': values_x
+                }
+
+                # Graficar perfil Y con todos los picos
+                ax_y = self.figure_y.add_subplot(111)
+                ax_y.plot(y_coords, y_profile)
+                peaks_y, values_y = find_peaks_and_values(y_profile)
+                
+                scaled_peak_coords_y = y_coords[peaks_y]
+                
+                red_dots_y = ax_y.plot(scaled_peak_coords_y, values_y, 'ro', picker=5)[0]
+                for i in range(len(peaks_y)):
+                    ax_y.annotate(f'{values_y[i]:.1f}dB', 
+                                (scaled_peak_coords_y[i], values_y[i]),
+                                xytext=(0, 10), 
+                                textcoords='offset points',
+                                ha='center',
+                                fontsize=8)
+                ax_y.set_title(f'Y Profile at X={x_mm:.2f}mm, Z={z_mm:.2f}mm')
+                ax_y.set_xlabel(ylabel)
+                ax_y.set_ylabel('Amplitude (dB)')
+                ax_y.grid(True)
+                self.canvas_y.draw()
+                self._peak_data['y'] = {
+                    'coords': scaled_peak_coords_y,
+                    'values': values_y
+                }
+
+                # Graficar perfil Z con todos los picos
+                ax_z = self.figure_z.add_subplot(111)
+                ax_z.plot(z_coords, z_profile)
+                peaks_z, values_z = find_peaks_and_values(z_profile)
+                
+                scaled_peak_coords_z = z_coords[peaks_z]
+
+                red_dots_z = ax_z.plot(scaled_peak_coords_z, values_z, 'ro', picker=5)[0]
+                for i in range(len(peaks_z)):
+                    ax_z.annotate(f'{values_z[i]:.1f}dB', 
+                                (scaled_peak_coords_z[i], values_z[i]),
+                                xytext=(0, 10), 
+                                textcoords='offset points',
+                                ha='center',
+                                fontsize=8)
+                ax_z.set_title(f'Z Profile at X={x_mm:.2f}mm, Y={y_mm:.2f}mm')
+                ax_z.set_xlabel(zlabel)
+                ax_z.set_ylabel('Amplitude (dB)')
+                ax_z.grid(True)
+                self.canvas_z.draw()
+                self._peak_data['z'] = {
+                    'coords': scaled_peak_coords_z,
+                    'values': values_z
+                }
+
+                # --- ACCIÓN DE CLIC PARA PUNTOS ROJOS ---
+                def on_pick_x(event):
+                    if event.artist != red_dots_x:
+                        return
+                    ind = event.ind[0]
+                    x_val = self._peak_data['x']['coords'][ind]
+                    y_val = self._peak_data['x']['values'][ind]
+                    QMessageBox.information(self, "Valor del punto",
+                        f"Perfil X\nX = {x_val:.2f} {unit_label}\nAmplitud = {y_val:.2f} dB")
+
+                def on_pick_y(event):
+                    if event.artist != red_dots_y:
+                        return
+                    ind = event.ind[0]
+                    y_val = self._peak_data['y']['coords'][ind]
+                    amp_val = self._peak_data['y']['values'][ind]
+                    QMessageBox.information(self, "Valor del punto",
+                        f"Perfil Y\nY = {y_val:.2f} {unit_label}\nAmplitud = {amp_val:.2f} dB")
+
+                def on_pick_z(event):
+                    if event.artist != red_dots_z:
+                        return
+                    ind = event.ind[0]
+                    z_val = self._peak_data['z']['coords'][ind]
+                    amp_val = self._peak_data['z']['values'][ind]
+                    QMessageBox.information(self, "Valor del punto",
+                        f"Perfil Z\nZ = {z_val:.2f} {unit_label}\nAmplitud = {amp_val:.2f} dB")
+
+                # Quitar conexiones previas para evitar mensajes duplicados
+                try:
+                    self.canvas_x.mpl_disconnect(self._xpick_cid)
+                except AttributeError:
+                    pass
+                try:
+                    self.canvas_y.mpl_disconnect(self._ypick_cid)
+                except AttributeError:
+                    pass
+                try:
+                    self.canvas_z.mpl_disconnect(self._zpick_cid)
+                except AttributeError:
+                    pass
+                self._xpick_cid = self.canvas_x.mpl_connect('pick_event', on_pick_x)
+                self._ypick_cid = self.canvas_y.mpl_connect('pick_event', on_pick_y)
+                self._zpick_cid = self.canvas_z.mpl_connect('pick_event', on_pick_z)
+
+        except Exception as e:
+            QMessageBox.warning(self, "Error", f"Error generating profiles: {str(e)}")
+
+    def open_table_dialog(self):
+        try:
+            if self.xs_pixels is None: # Comprobación
+                 QMessageBox.warning(self, "Error", "No simulation points loaded.")
+                 return
+            fwhm_list = self.calculate_all_fwhms()
+            self.dlg = DialogWindow(self) # Asume que la UI (Ui_Form) tiene las cabeceras por defecto
+            
+            # Actualizar cabeceras de la tabla dinámicamente
+            if hasattr(self.ui, 'checkunits') and self.ui.checkunits.isChecked():
+                unit_label = r'($\lambda$)'
+            else:
+                unit_label = '(mm)'
+            
+            self.dlg.ui.tableWidget.horizontalHeaderItem(1).setText(f"FWHM X {unit_label}")
+            self.dlg.ui.tableWidget.horizontalHeaderItem(2).setText(f"FWHM Y {unit_label}")
+            self.dlg.ui.tableWidget.horizontalHeaderItem(3).setText(f"FWHM Z {unit_label}")
+            
+            self.dlg.load_fwhm_table(fwhm_list)
             self.dlg.exec_()
         except Exception as e:
-            QMessageBox.critical(self, "Error", f"Cannot open the FWHM table: {str(e)}")
-
-
-class ScatterDialog(ProfilePlotMixin, QDialog):
-    # Añadir lambda_value al constructor
-    def __init__(self, xs, ys, zs, x=None, y=None, z=None, data=None, lambda_value=1.0):
-        super().__init__()
-
-        # Configurar la interfaz del diálogo
-        self.ui = Ui_Dialog()
-        self.ui.setupUi(self)
-
-        # Mantener atributos "planos" por compatibilidad con el resto del código
-        self.xs = xs
-        self.ys = ys
-        self.zs = zs
-        self.x = x
-        self.y = y
-        self.z = z
-        self.data = data
-        self.lambda_value = lambda_value
-        self.mi_lineedit = self.ui.InputIndex
-
-        sources = [{
-            'data': data, 'x': x, 'y': y, 'z': z,
-            'xs': xs, 'ys': ys, 'zs': zs,
-            'lambda_value': lambda_value,
-            'label': 'File', 'color': None,
-        }]
-
-        # Toda la lógica de perfiles X/Y/Z, FWHM, picos, zoom y tabla
-        # vive en ProfilePlotMixin (ver _init_profile_plots).
-        self._init_profile_plots(sources, self.ui.combbprincipal)
+            QMessageBox.critical(self, "Error", f"No se pudo abrir la tabla FWHM: {str(e)}")
 
 class DialogWindow(QDialog):
     def __init__(self, parent=None):
@@ -1371,69 +1496,19 @@ class DialogWindow(QDialog):
         self.ui.tableWidget.verticalHeader().setVisible(False)
         self.ui.butexport.clicked.connect(self.save_table)
 
-    # Tamaños originales definidos en ui_fwhm.py, usados como base para
-    # calcular cuánto agrandar la ventana cuando hay más de 4 columnas.
-    _BASE_DIALOG_W, _BASE_FRAME_W, _BASE_TABLE_W = 557, 501, 511
-    _BASE_COLUMNS = 4
-    _EXTRA_COL_WIDTH = 120  # ancho aproximado reservado por columna extra
-
-    def set_headers(self, headers):
+    def load_fwhm_table(self, fwhm_list):
         """
-            1 archivo -> ["Point No.", "FWHM X (mm)", "FWHM Y (mm)", "FWHM Z (mm)"]
-            2 archivos -> ["Point No.",
-                           "X (mm) — File 1", "X (mm) — File 2",
-                           "Y (mm) — File 1", "Y (mm) — File 2",
-                           "Z (mm) — File 1", "Z (mm) — File 2"]
+        fwhm_list: lista de tuplas (punto, fwhm_x, fwhm_y, fwhm_z)
+        Los valores FWHM ya están escalados (mm o lambda)
         """
-        self.ui.tableWidget.setColumnCount(len(headers))
-        for col, text in enumerate(headers):
-            self.ui.tableWidget.setHorizontalHeaderItem(col, QTableWidgetItem(text))
-        self._resize_for_columns(len(headers))
+        self.ui.tableWidget.setRowCount(len(fwhm_list))
+        for row, (pt, fx, fy, fz) in enumerate(fwhm_list):
+            self.ui.tableWidget.setItem(row, 0, QTableWidgetItem(str(pt)))
+            self.ui.tableWidget.setItem(row, 1, QTableWidgetItem(f"{fx:.3f}"))
+            self.ui.tableWidget.setItem(row, 2, QTableWidgetItem(f"{fy:.3f}"))
+            self.ui.tableWidget.setItem(row, 3, QTableWidgetItem(f"{fz:.3f}"))    
 
-    def _resize_for_columns(self, n_columns):
-        """
-        ui_fwhm.py posiciona frame/tableWidget con geometría fija (sin
-        layouts), así que si hay más de 4 columnas hay que agrandar la
-        ventana manualmente para que no queden cortadas.
-        """
-        extra_cols = max(0, n_columns - self._BASE_COLUMNS)
-        extra_width = extra_cols * self._EXTRA_COL_WIDTH
-
-        new_dialog_w = self._BASE_DIALOG_W + extra_width
-        new_frame_w = self._BASE_FRAME_W + extra_width
-        new_table_w = self._BASE_TABLE_W + extra_width
-
-        self.resize(new_dialog_w, self.height())
-
-        frame_geo = self.ui.frame.geometry()
-        self.ui.frame.setGeometry(frame_geo.x(), frame_geo.y(), new_frame_w, frame_geo.height())
-
-        table_geo = self.ui.tableWidget.geometry()
-        self.ui.tableWidget.setGeometry(table_geo.x(), table_geo.y(), new_table_w, table_geo.height())
-
-        # Centrar el título y el botón de exportar en el nuevo ancho
-        title_geo = self.ui.F_title.geometry()
-        self.ui.F_title.move((new_dialog_w - title_geo.width()) // 2, title_geo.y())
-
-        btn_geo = self.ui.butexport.geometry()
-        self.ui.butexport.move((new_dialog_w - btn_geo.width()) // 2, btn_geo.y())
-
-    def load_fwhm_table(self, rows):
-        """
-        rows: lista de tuplas, cada tupla = (point_no, fwhm_x1, fwhm_x2, ..., fwhm_y1, fwhm_y2, ..., fwhm_z1, fwhm_z2, ...)
-        """
-        self.ui.tableWidget.setRowCount(len(rows))
-        for row_idx, row_values in enumerate(rows):
-            for col_idx, value in enumerate(row_values):
-                if value is None:
-                    text = "N/A"
-                elif col_idx == 0:
-                    text = str(value)
-                else:
-                    text = f"{value:.3f}"
-                self.ui.tableWidget.setItem(row_idx, col_idx, QTableWidgetItem(text))
-        self.ui.tableWidget.resizeColumnsToContents()
-
+    
     def save_table(self):
         path, _ = QFileDialog.getSaveFileName(self, "Save table", "", "CSV Files (*.csv)")
         if path:
@@ -1480,16 +1555,16 @@ class PopupDialog(QDialog):
             x_val_str = self.ui.X_value_s.text()
             y_val_str = self.ui.Y_Value_s.text()
             if not x_val_str or not y_val_str:
-                QMessageBox.warning(self, "Error", "Please enter values for X and Y.")
+                QMessageBox.warning(self, "Error", "Por favor ingresa valores para X e Y.")
                 return
             x_val_mm = float(x_val_str)
             y_val_mm = float(y_val_str)
         except ValueError:
-            QMessageBox.warning(self, "Error", "Please enter valid numbers for X and Y.")
+            QMessageBox.warning(self, "Error", "Por favor ingresa números válidos para X e Y.")
             return
         
         if self.data is None or self.x is None or self.y is None or self.z is None:
-            QMessageBox.warning(self, "Error", "Data not loaded.")
+            QMessageBox.warning(self, "Error", "Datos no cargados.")
             return
 
         opcion = self.ui.boxxoro.currentText()
@@ -1617,13 +1692,11 @@ class PopupDialog(QDialog):
             # Mejor limpiar y añadir
             self.frame_layout.addWidget(self.toolbar)
 
-class CDDialog(ProfilePlotMixin, QDialog):
-    def __init__(self, parent=None, data=None, x=None, y=None, z=None, xs=None, ys=None, zs=None,
-                 lambda_value=1.0, file_label="Main File"):
+class CDDialog(QDialog):
+    def __init__(self, parent=None, data=None, x=None, y=None, z=None, xs=None, ys=None, zs=None, lambda_value=1.0):
         super().__init__(parent)
         self.ui = Ui_CDDialog()
         self.ui.setupUi(self)
-        self.file_label = file_label  # nombre a mostrar en leyendas/mensajes para el archivo 1
 
         #Conectar los botones 
         self.ui.graph_scatter_cd.clicked.connect(self.show_planes_together)
@@ -1729,31 +1802,6 @@ class CDDialog(ProfilePlotMixin, QDialog):
         # Crear la visualización Mayavi para Frame2 (segundo archivo - data_2)
         if hasattr(self.ui, 'Frame2'):
             self.setup_3d_visualization_frame2()
-
-        # Configurar la pestaña "FW": perfiles X/Y/Z de AMBOS archivos
-        # superpuestos en los mismos gráficos, reutilizando ProfilePlotMixin.
-        self._setup_comparison_profiles()
-
-    def _setup_comparison_profiles(self):
-        """Inicializa la pestaña de perfiles comparativos (FrameX/Y/Z) con
-        los datos de ambos archivos, usando la lógica de ScatterDialog."""
-        sources = [
-            {
-                'data': self.data, 'x': self.x, 'y': self.y, 'z': self.z,
-                'xs': self.xs, 'ys': self.ys, 'zs': self.zs,
-                'lambda_value': self.lambda_value,
-                'label': self.file_label, 'color': 'tab:blue',
-            },
-            {
-                'data': self.data_2, 'x': self.x_2, 'y': self.y_2, 'z': self.z_2,
-                'xs': self.xs_2, 'ys': self.ys_2, 'zs': self.zs_2,
-                'lambda_value': self.lambda_value_2,
-                'label': 'Secondary File', 'color': 'tab:orange',
-            },
-        ]
-        # combbprincipal_2 es el selector "Simulation peaks / Manual input"
-        # de la pestaña FW (combbprincipal ya está usado por Volume/Isosurface)
-        self._init_profile_plots(sources, self.ui.combbprincipal_2)
 
     # ========== FRAME 1 (Data original) ==========
     def setup_3d_visualization_frame1(self):
@@ -1918,20 +1966,20 @@ class CDDialog(ProfilePlotMixin, QDialog):
             x_val_str = self.ui.X_value_cd.text()
             y_val_str = self.ui.Y_Value_cd.text()
             if not x_val_str or not y_val_str:
-                QMessageBox.warning(self, "Error", "Please enter values for X and Y.")
+                QMessageBox.warning(self, "Error", "Por favor ingresa valores para X e Y.")
                 return
             x_val_mm = float(x_val_str)
             y_val_mm = float(y_val_str)
         except ValueError:
-            QMessageBox.warning(self, "Error", "Please enter valid numbers for X and Y.")
+            QMessageBox.warning(self, "Error", "Por favor ingresa números válidos para X e Y.")
             return
 
         if self.data is None or self.x is None or self.y is None or self.z is None:
-            QMessageBox.warning(self, "Error", "Data from file 1 not loaded.")
+            QMessageBox.warning(self, "Error", "Datos del archivo 1 no cargados.")
             return
 
         if self.data_2 is None or self.x_2 is None or self.y_2 is None or self.z_2 is None:
-            QMessageBox.warning(self, "Error", "Data from file 2 not loaded.")
+            QMessageBox.warning(self, "Error", "Datos del archivo 2 no cargados.")
             return
 
         # --- Marker style ---
@@ -1977,7 +2025,7 @@ class CDDialog(ProfilePlotMixin, QDialog):
         img_plot1_0 = axes1[0].imshow(img_y1.T, cmap='gray', origin='lower', aspect='auto',
                                     extent=[x_mm1[0], x_mm1[-1], z_mm1[0], z_mm1[-1]])
         axes1[0].scatter(scatter_y_x1, scatter_y_z1, c='r', marker=marker_style, label='Scatter')
-        axes1[0].set_title(f'Main File Y={y_val_mm:.2f} mm')
+        axes1[0].set_title(f'Main file — Y={y_val_mm:.2f} mm')
         axes1[0].set_xlabel('X (mm)')
         axes1[0].set_ylabel('Z (mm)')
         axes1[0].legend()
@@ -1986,7 +2034,7 @@ class CDDialog(ProfilePlotMixin, QDialog):
         img_plot1_1 = axes1[1].imshow(img_x1.T, cmap='gray', origin='lower', aspect='auto',
                                     extent=[y_mm1[0], y_mm1[-1], z_mm1[0], z_mm1[-1]])
         axes1[1].scatter(scatter_x_y1, scatter_x_z1, c='r', marker=marker_style, label='Scatter')
-        axes1[1].set_title(f'Main File X={x_val_mm:.2f} mm')
+        axes1[1].set_title(f'Main file — X={x_val_mm:.2f} mm')
         axes1[1].set_xlabel('Y (mm)')
         axes1[1].legend()
         axes1[1].set_aspect('equal', adjustable='box')
@@ -2034,7 +2082,7 @@ class CDDialog(ProfilePlotMixin, QDialog):
         img_plot2_0 = axes2[0].imshow(img_y2.T, cmap='gray', origin='lower', aspect='auto',
                                     extent=[x_mm2[0], x_mm2[-1], z_mm2[0], z_mm2[-1]])
         axes2[0].scatter(scatter_y_x2, scatter_y_z2, c='r', marker=marker_style, label='Scatter')
-        axes2[0].set_title(f'Secondary File Y={y_val_mm:.2f} mm')
+        axes2[0].set_title(f'Secondary file — Y={y_val_mm:.2f} mm')
         axes2[0].set_xlabel('X (mm)')
         axes2[0].set_ylabel('Z (mm)')
         axes2[0].legend()
@@ -2043,7 +2091,7 @@ class CDDialog(ProfilePlotMixin, QDialog):
         img_plot2_1 = axes2[1].imshow(img_x2.T, cmap='gray', origin='lower', aspect='auto',
                                     extent=[y_mm2[0], y_mm2[-1], z_mm2[0], z_mm2[-1]])
         axes2[1].scatter(scatter_x_y2, scatter_x_z2, c='r', marker=marker_style, label='Scatter')
-        axes2[1].set_title(f'Secondary File X={x_val_mm:.2f} mm')
+        axes2[1].set_title(f'Secondary file — X={x_val_mm:.2f} mm')
         axes2[1].set_xlabel('Y (mm)')
         axes2[1].legend()
         axes2[1].set_aspect('equal', adjustable='box')
@@ -2121,4 +2169,4 @@ if __name__ == "__main__":
     sys.exit(app.exec_())
 
 
-#VERSION FINAL FINAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAL
+#VERSION FINAL

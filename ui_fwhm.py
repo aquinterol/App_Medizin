@@ -14,9 +14,9 @@ from PyQt5 import QtCore, QtGui, QtWidgets
 class Ui_Form(object):
     def setupUi(self, Form):
         Form.setObjectName("Form")
-        Form.resize(557, 581)
+        Form.resize(795, 645)
         self.F_title = QtWidgets.QLabel(Form)
-        self.F_title.setGeometry(QtCore.QRect(200, 30, 221, 31))
+        self.F_title.setGeometry(QtCore.QRect(330, 30, 221, 31))
         self.F_title.setStyleSheet("color: rgb(0, 0, 127);\n"
 "font: 900 9pt \"Segoe UI\";\n"
 "font: 14pt \"Segoe UI\";")
@@ -27,7 +27,7 @@ class Ui_Form(object):
         self.frame.setFrameShadow(QtWidgets.QFrame.Raised)
         self.frame.setObjectName("frame")
         self.tableWidget = QtWidgets.QTableWidget(self.frame)
-        self.tableWidget.setGeometry(QtCore.QRect(0, 0, 511, 401))
+        self.tableWidget.setGeometry(QtCore.QRect(0, 0, 731, 471))
         self.tableWidget.setObjectName("tableWidget")
         self.tableWidget.setColumnCount(4)
         self.tableWidget.setRowCount(0)
@@ -40,7 +40,7 @@ class Ui_Form(object):
         item = QtWidgets.QTableWidgetItem()
         self.tableWidget.setHorizontalHeaderItem(3, item)
         self.butexport = QtWidgets.QPushButton(Form)
-        self.butexport.setGeometry(QtCore.QRect(210, 520, 141, 29))
+        self.butexport.setGeometry(QtCore.QRect(310, 590, 141, 29))
         self.butexport.setStyleSheet("QPushButton {\n"
 "    background-color: rgb(0, 0, 77);\n"
 "    color: white;\n"

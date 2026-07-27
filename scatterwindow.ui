@@ -202,10 +202,10 @@ font: 16pt &quot;Segoe UI&quot;;</string>
   <widget class="QLineEdit" name="InputZoom">
    <property name="geometry">
     <rect>
-     <x>1030</x>
-     <y>131</y>
-     <width>51</width>
-     <height>20</height>
+     <x>1020</x>
+     <y>130</y>
+     <width>71</width>
+     <height>31</height>
     </rect>
    </property>
    <property name="text">
@@ -216,7 +216,7 @@ font: 16pt &quot;Segoe UI&quot;;</string>
    <property name="geometry">
     <rect>
      <x>880</x>
-     <y>130</y>
+     <y>140</y>
      <width>191</width>
      <height>20</height>
     </rect>
@@ -300,4 +300,3 @@ font: 16pt &quot;Segoe UI&quot;;</string>
  <resources/>
  <connections/>
 </ui>
-

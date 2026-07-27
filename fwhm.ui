@@ -6,8 +6,8 @@
    <rect>
     <x>0</x>
     <y>0</y>
-    <width>557</width>
-    <height>581</height>
+    <width>795</width>
+    <height>645</height>
    </rect>
   </property>
   <property name="windowTitle">
@@ -16,7 +16,7 @@
   <widget class="QLabel" name="F_title">
    <property name="geometry">
     <rect>
-     <x>200</x>
+     <x>330</x>
      <y>30</y>
      <width>221</width>
      <height>31</height>
@@ -51,8 +51,8 @@ font: 14pt &quot;Segoe UI&quot;;</string>
      <rect>
       <x>0</x>
       <y>0</y>
-      <width>511</width>
-      <height>401</height>
+      <width>731</width>
+      <height>471</height>
      </rect>
     </property>
     <column>
@@ -80,8 +80,8 @@ font: 14pt &quot;Segoe UI&quot;;</string>
   <widget class="QPushButton" name="butexport">
    <property name="geometry">
     <rect>
-     <x>210</x>
-     <y>520</y>
+     <x>310</x>
+     <y>590</y>
      <width>141</width>
      <height>29</height>
     </rect>

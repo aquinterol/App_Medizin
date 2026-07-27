@@ -82,7 +82,7 @@ class Ui_Form(object):
 
     def retranslateUi(self, Form):
         _translate = QtCore.QCoreApplication.translate
-        Form.setWindowTitle(_translate("Form", "Form"))
+        Form.setWindowTitle(_translate("Form", "2D Cuts"))
         self.label.setText(_translate("Form", "Please write the desired values "))
         self.label_2.setText(_translate("Form", "X-value"))
         self.label_3.setText(_translate("Form", "Y-value"))
