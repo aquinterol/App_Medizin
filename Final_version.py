@@ -30,10 +30,10 @@ from scipy.signal import find_peaks
 import matplotlib.pyplot as plt
 from vtkmodules.qt.QVTKRenderWindowInteractor import QVTKRenderWindowInteractor
 
+# Function for interpolating the data
 def get_interpolated_plane(data, coords, coord_mm, axis):
-        # Interpolación lineal de plano de imagen
-        coord_m = coord_mm / 1000.0 # Convertir mm de entrada a metros
-        idx = np.searchsorted(coords, coord_m) # Coordenadas (self.x/y/z) están en metros
+        coord_m = coord_mm / 1000.0 # Convert input mm to meters
+        idx = np.searchsorted(coords, coord_m) # Coordinates (self.x/y/z) are in meters
         if idx == 0:
             idx0, idx1 = 0, 1
         elif idx >= len(coords):
@@ -41,7 +41,7 @@ def get_interpolated_plane(data, coords, coord_mm, axis):
         else:
             idx0, idx1 = idx - 1, idx
         
-        if idx1 >= len(coords): # Control de borde
+        if idx1 >= len(coords): # Edge case handling
             idx1 = len(coords) - 1
             idx0 = idx1 - 1
             
@@ -58,7 +58,7 @@ def get_interpolated_plane(data, coords, coord_mm, axis):
             img0 = data[:, :, idx0]
             img1 = data[:, :, idx1]
         else:
-            raise ValueError('Eje inválido')
+            raise ValueError('Invalid axis')
         img_interp = (1 - alpha) * img0 + alpha * img1
         return img_interp
 
@@ -88,10 +88,10 @@ class MyWidget(QWidget):
         # Connect the scatter button to open the dialog
         self.ui.scatter.clicked.connect(self.open_scatter_dialog)
 
-        # Estado del botón
+        # Button state
         self.scatter_activado = False
 
-        # Conectar los botones, eventos y slider
+        # Connect the buttons, events, and slider
         self.ui.openFile.clicked.connect(self.open_file)
         self.ui.comboBox.setEnabled(False)
         self.ui.comboBox.currentIndexChanged.connect(self.plot_volume)
@@ -104,17 +104,17 @@ class MyWidget(QWidget):
         # Connect the units combobox
         self.ui.comboBox_2.currentIndexChanged.connect(self.update_units)
 
-        # Crear la visualización Mayavi para el layout principal
+        # Create the Mayavi visualization for the main layout
         self.visualization = VisualizationWidget()
         self.visualization_control = self.visualization.edit_traits(parent=self, kind='subpanel').control
         self.ui.viLayout.addWidget(self.visualization_control)
 
-        # Crear widgets de visualización para las pestañas
+        # Create visualization widgets for the tabs
         self.visualization_xy = self._create_visualization(self.ui.tabWidget.widget(0))
         self.visualization_yz = self._create_visualization(self.ui.tabWidget.widget(1))
         self.visualization_xz = self._create_visualization(self.ui.tabWidget.widget(2))
 
-        # Variable para almacenar los datos
+        # Variable to store the data
         self.data = None  # Store converted data
         self.data_shape = None
         self.plane_xy = None
@@ -122,13 +122,13 @@ class MyWidget(QWidget):
         self.plane_xz = None
         self.current_tab_index = 0
         
-        # Variables para almacenar las coordenadas x, y, z
+        # Variables to store the x, y, z coordinates
         self.x = None
         self.y = None
         self.z = None
-        self.lambda_value = 1.0  # Valor predeterminado
+        self.lambda_value = 1.0  # Default value
 
-        # Conectar el cambio de pestaña
+        # Connect the tab change event
         self.ui.tabWidget.currentChanged.connect(self.tab_changed)    
 
     def _create_visualization(self, parent_widget):
@@ -143,11 +143,11 @@ class MyWidget(QWidget):
         try:
             value = mat_data['param'][field_name][0][0][0]
             
-            # --- CORRECCIÓN DE TIPO ---
-            # Asegurarse de que el valor sea un escalar de Python
+            # --- TYPE CORRECTION ---
+            # Make sure the value is a Python scalar
             if isinstance(value, np.ndarray):
-                value = value.item() # Extrae el escalar de un array (ej. np.array([1.5]) -> 1.5)
-            # --- FIN CORRECCIÓN DE TIPO ---
+                value = value.item() # Extract the scalar from an array (e.g. np.array([1.5]) -> 1.5)
+            # --- END TYPE CORRECTION ---
 
             return value
         except (KeyError, IndexError):
@@ -157,34 +157,34 @@ class MyWidget(QWidget):
         self.current_tab_index = index
         if self.data is not None:
             self.update_slider_range()
-            # Actualizar la posición del slider para reflejar el plano actual
+            # Update the slider position to reflect the current plane
             self.update_slice_position(self.ui.horizontalSlider.value())
 
     def update_slider_range(self):
         if self.data is None:
             return
 
-        # Ajustar el rango del slider según la dimensión actual
-        if self.current_tab_index == 0:  # XY (control en Z)
+        # Adjust the slider range according to the current dimension
+        if self.current_tab_index == 0:  # XY (control on Z)
             max_val = self.data.shape[2] - 1
-        elif self.current_tab_index == 1:  # YZ (control en X)
+        elif self.current_tab_index == 1:  # YZ (control on X)
             max_val = self.data.shape[0] - 1
-        else:  # XZ (control en Y)
+        else:  # XZ (control on Y)
             max_val = self.data.shape[1] - 1
 
-        # Preservar la posición relativa cuando se cambia de pestaña
+        # Preserve the relative position when switching tabs
         current_value = self.ui.horizontalSlider.value()
         old_max = self.ui.horizontalSlider.maximum()
         
-        # Si el slider ya tiene un rango, calcular la posición relativa
+        # If the slider already has a range, calculate the relative position
         if old_max > 0:
             relative_position = current_value / old_max
             new_value = int(relative_position * max_val)
         else:
-            # De lo contrario, usar el punto medio
+            # Otherwise, use the midpoint
             new_value = max_val // 2
         
-        # Configurar el rango y valor del slider
+        # Configure the slider range and value
         self.ui.horizontalSlider.setRange(0, max_val)
         self.ui.horizontalSlider.setValue(new_value)
         self.update_position_label(new_value)
@@ -219,7 +219,7 @@ class MyWidget(QWidget):
             elif choice == "Volume rendering":
                 mlab.pipeline.volume(src)
 
-            # Usar los valores de x, y, z reales para los ejes si están disponibles
+            # Use the real x, y, z values for the axes if available
             if self.x is not None and self.y is not None and self.z is not None:
                 x_min, x_max = self.x[0], self.x[-1]
                 y_min, y_max = self.y[0], self.y[-1]
@@ -237,7 +237,7 @@ class MyWidget(QWidget):
                     ranges=np.array([x_min, x_max, y_min, y_max, z_min, z_max]).flatten()
                 )
             else:
-                # Fallback a los índices si no hay coordenadas reales
+                # Fall back to indices if there are no real coordinates
                 axes = mlab.axes(
                     xlabel=xlabel, ylabel=ylabel, zlabel=zlabel,
                     ranges=[0, self.data.shape[0]*scale_factor, 
@@ -262,23 +262,23 @@ class MyWidget(QWidget):
         if self.data is None:
             return
         
-        # Si no se proporcionan unidades, usar las seleccionadas actualmente
+        # If no units are provided, use the currently selected ones
         if units is None:
             units = 'mm' if self.ui.comboBox_2.currentText() == "Milimeters" else r'$\lambda$'
             
-        # Calcular el factor de escala basado en las unidades
+        # Calculate the scale factor based on the units
         if units == 'mm':
             scale_factor = 1000 
         else:
             scale_factor = 1 / self.lambda_value 
             
-        # Obtener el tamaño total del eje actual y la posición
-        if self.current_tab_index == 0:  # XY (control en Z)
+        # Get the total size of the current axis and the position
+        if self.current_tab_index == 0:  # XY (control on Z)
             axis_name = 'Z'
             total_size = self.data.shape[2]
             current_pos = position
             
-            # Si tenemos valores reales de z, usar esos en lugar del índice
+            # If we have real z values, use those instead of the index
             if self.z is not None and position < len(self.z):
                 real_pos = self.z[position].astype(float) * scale_factor
                 if isinstance(real_pos, np.ndarray):
@@ -287,12 +287,12 @@ class MyWidget(QWidget):
             else:
                 plane_text = f"XY Plane at Z = {current_pos} {units}"
                 
-        elif self.current_tab_index == 1:  # YZ (control en X)
+        elif self.current_tab_index == 1:  # YZ (control on X)
             axis_name = 'X'
             total_size = self.data.shape[0]
             current_pos = position
             
-            # Si tenemos valores reales de x, usar esos en lugar del índice
+            # If we have real x values, use those instead of the index
             if self.x is not None and position < len(self.x):
                 real_pos = self.x[position].astype(float) * scale_factor
                 if isinstance(real_pos, np.ndarray):
@@ -301,12 +301,12 @@ class MyWidget(QWidget):
             else:
                 plane_text = f"YZ Plane at X = {current_pos} {units}"
                 
-        else:  # XZ (control en Y)
+        else:  # XZ (control on Y)
             axis_name = 'Y'
             total_size = self.data.shape[1]
             current_pos = position
             
-            # Si tenemos valores reales de y, usar esos en lugar del índice
+            # If we have real y values, use those instead of the index
             if self.y is not None and position < len(self.y):
                 real_pos = self.y[position].astype(float) * scale_factor
                 if isinstance(real_pos, np.ndarray):
@@ -315,10 +315,10 @@ class MyWidget(QWidget):
             else:
                 plane_text = f"XZ Plane at Y = {current_pos} {units}"
 
-        # Actualizar la etiqueta con el eje y la posición actual
+        # Update the label with the axis and current position
         self.ui.label.setText(plane_text)
         
-        # Actualizar también el textInfo
+        # Also update textInfo
         current_info = self.ui.textInfo.toPlainText()
         info_lines = current_info.split('\n')
         position_line = f"Current Position: {plane_text} ({position}/{total_size-1})"
@@ -340,12 +340,12 @@ class MyWidget(QWidget):
         if self.data is None:
             return
 
-        # Obtener las unidades actuales
+        # Get the current units
         selected_unit = 'mm' if self.ui.comboBox_2.currentText() == "Milimeters" else r'$\lambda$'
         self.update_position_label(position, selected_unit)
 
         try:
-            # Asegurarse de que los planos existan antes de actualizarlos
+            # Make sure the planes exist before updating them
             if self.current_tab_index == 0:  # XY
                 if self.plane_xy and hasattr(self.plane_xy, 'ipw'):
                     self.plane_xy.ipw.slice_position = position
@@ -363,7 +363,7 @@ class MyWidget(QWidget):
             return
 
         try:
-            # Si no se proporcionan parámetros, usar valores predeterminados
+            # If no parameters are provided, use default values
             if scale_factor is None or xlabel is None or ylabel is None or zlabel is None:
                 selected_unit = self.ui.comboBox_2.currentText()
                 if selected_unit == "Milimeters":
@@ -377,23 +377,23 @@ class MyWidget(QWidget):
                     ylabel = r'Y ($\lambda$)'
                     zlabel = r'Z ($\lambda$)'
             
-            # Configurar planos de corte en las posiciones actuales del slider o por defecto en el medio
+            # Configure cut planes at the current slider positions, or by default in the middle
             slice_x = self.ui.horizontalSlider.value() if self.current_tab_index == 1 else self.data.shape[0] // 2
             slice_y = self.ui.horizontalSlider.value() if self.current_tab_index == 2 else self.data.shape[1] // 2
             slice_z = self.ui.horizontalSlider.value() if self.current_tab_index == 0 else self.data.shape[2] // 2
             
-            # Asegurarse de que los índices de corte estén dentro de los límites
+            # Make sure the cut indices are within bounds
             slice_x = max(0, min(slice_x, self.data.shape[0] - 1))
             slice_y = max(0, min(slice_y, self.data.shape[1] - 1))
             slice_z = max(0, min(slice_z, self.data.shape[2] - 1))
             
-            # Determinar los rangos para los ejes
+            # Determine the ranges for the axes
             if self.x is not None and self.y is not None and self.z is not None:
                 x_min, x_max = self.x[0], self.x[-1]
                 y_min, y_max = self.y[0], self.y[-1]
                 z_min, z_max = self.z[0], self.z[-1]
                 
-                # Aplicar factor de escala si es necesario
+                # Apply scale factor if necessary
                 x_min *= scale_factor
                 x_max *= scale_factor
                 y_min *= scale_factor
@@ -401,15 +401,15 @@ class MyWidget(QWidget):
                 z_min *= scale_factor
                 z_max *= scale_factor
             else:
-                # Fallback a los índices si no hay coordenadas reales
+                # Fall back to indices if there are no real coordinates
                 x_min, x_max = 0, self.data.shape[0] * scale_factor
                 y_min, y_max = 0, self.data.shape[1] * scale_factor
                 z_min, z_max = 0, self.data.shape[2] * scale_factor
             
-            # Crear un array NumPy para los rangos
+            # Create a NumPy array for the ranges
             ranges = np.array([x_min, x_max, y_min, y_max, z_min, z_max]).flatten()
 
-            # XY Visualization (Plano XY)
+            # XY Visualization (XY Plane)
             mlab.clf(figure=self.visualization_xy.scene.mayavi_scene)
             src_xy = mlab.pipeline.scalar_field(self.data, figure=self.visualization_xy.scene.mayavi_scene)
             self.plane_xy = mlab.pipeline.image_plane_widget(src_xy, 
@@ -425,7 +425,7 @@ class MyWidget(QWidget):
             self.visualization_xy.scene.camera.view_up = [0, 1, 0]
             self.visualization_xy.scene.camera.elevation(-90)
 
-            # YZ Visualization (Plano YZ)
+            # YZ Visualization (YZ Plane)
             mlab.clf(figure=self.visualization_yz.scene.mayavi_scene)
             src_yz = mlab.pipeline.scalar_field(self.data, figure=self.visualization_yz.scene.mayavi_scene)
             self.plane_yz = mlab.pipeline.image_plane_widget(src_yz, 
@@ -441,7 +441,7 @@ class MyWidget(QWidget):
             self.visualization_yz.scene.camera.view_up = [0, 1, 0]
             self.visualization_yz.scene.camera.azimuth(90)
 
-            # XZ Visualization (Plano XZ)
+            # XZ Visualization (XZ Plane)
             mlab.clf(figure=self.visualization_xz.scene.mayavi_scene)
             src_xz = mlab.pipeline.scalar_field(self.data, figure=self.visualization_xz.scene.mayavi_scene)
             self.plane_xz = mlab.pipeline.image_plane_widget(src_xz, 
@@ -457,7 +457,7 @@ class MyWidget(QWidget):
             self.visualization_xz.scene.camera.view_up = [0, 0, 1]
             self.visualization_xz.scene.camera.azimuth(90)
 
-            # Actualizar etiqueta de posición con las unidades correctas
+            # Update the position label with the correct units
             units = 'mm' if 'mm' in xlabel else r'$\lambda$'
             self.update_position_label(self.ui.horizontalSlider.value(), units)
 
@@ -471,23 +471,23 @@ class MyWidget(QWidget):
                 mat_data = scipy.io.loadmat(file_path)
                 self.data = mat_data.get('data', None)
                 
-                # Cargar las coordenadas x, y, z si están disponibles
+                # Load the x, y, z coordinates if available
                 self.x = mat_data.get('x', None)
                 self.y = mat_data.get('y', None)
                 self.z = mat_data.get('z', None)
 
-                # Cargar las coordenadas x, y, z si están disponibles
+                # Load the x, y, z coordinates if available
                 self.xs = mat_data.get('xs', None)
                 self.ys = mat_data.get('ys', None)
                 self.zs = mat_data.get('zs', None)
 
                 
-                # Obtener lambda_value del archivo
+                # Get lambda_value from the file
                 self.lambda_value = self.get_param_value(mat_data, 'lambda')
                 if isinstance(self.lambda_value, str) or self.lambda_value == 0 or self.lambda_value is None:
-                    self.lambda_value = 1.0  # Valor predeterminado si no se encuentra
+                    self.lambda_value = 1.0  # Default value if not found
                 
-                # Convertir a arrays unidimensionales si es necesario
+                # Convert to one-dimensional arrays if necessary
                 if self.x is not None and len(self.x.shape) > 1:
                     self.x = self.x.ravel()
                 if self.y is not None and len(self.y.shape) > 1:
@@ -500,15 +500,15 @@ class MyWidget(QWidget):
                     self.ui.comboBox.setEnabled(True)
                     self.ui.horizontalSlider.setEnabled(True)
                     
-                    # Configurar el slider y actualizar visualizaciones
+                    # Configure the slider and update visualizations
                     self.update_slider_range()
                     self.plot_volume()
                     self.update_tab_visualizations()
                     
-                    # Obtener unidades actuales para la visualización
+                    # Get the current units for the visualization
                     selected_unit = 'mm' if self.ui.comboBox_2.currentText() == "Milimeters" else r'$\lambda$'
                     
-                    # Añadir información sobre las coordenadas
+                    # Add information about the coordinates
                     x_info = f"X range: [{self.x[0]:.4f} to {self.x[-1]:.4f}]" if self.x is not None else "X coordinates not found"
                     y_info = f"Y range: [{self.y[0]:.4f} to {self.y[-1]:.4f}]" if self.y is not None else "Y coordinates not found"
                     z_info = f"Z range: [{self.z[0]:.4f} to {self.z[-1]:.4f}]" if self.z is not None else "Z coordinates not found"
@@ -539,21 +539,21 @@ class MyWidget(QWidget):
                 self.ui.textInfo.setText(f"Error loading file: {e}")
 
     def plot_volume(self):
-        """Grafica en el layout principal"""
+        """Plots in the main layout"""
         if self.data is None:
             self.ui.textInfo.setText("No data loaded.")
             return
 
         try:
-            # Limpiar la escena de visualización principal
+            # Clear the main visualization scene
             if not self.scatter_activado:
              mlab.clf(figure=self.visualization.scene.mayavi_scene)
             
-            # Configurar el fondo y crear el campo escalar
+            # Configure the background and create the scalar field
             self.visualization.scene.background = (0.2, 0.2, 0.2)
             src = mlab.pipeline.scalar_field(self.data, figure=self.visualization.scene.mayavi_scene)
             
-            # Seleccionar el tipo de visualización basado en el comboBox
+            # Select the visualization type based on the comboBox
             choice = self.ui.comboBox.currentText()
             if choice == "Isosurface":
                  mlab.contour3d(self.data, contours=8, opacity=0.5)
@@ -561,7 +561,7 @@ class MyWidget(QWidget):
                 mlab.pipeline.volume(mlab.pipeline.scalar_field(self.data, vmin=0, vmax=0.8))
 
             
-            # Determinar las etiquetas y rangos basados en valores reales si están disponibles
+            # Determine the labels and ranges based on real values if available
             selected_unit = self.ui.comboBox_2.currentText()
             if selected_unit == "Milimeters":
                 scale_factor = 1000 
@@ -583,33 +583,33 @@ class MyWidget(QWidget):
             else:
                 mlab.axes(xlabel=xlabel, ylabel=ylabel, zlabel=zlabel)
 
-            # Configurar colorbar y ajustar la vista
+            # Configure colorbar and adjust the view
             mlab.colorbar(orientation='vertical', nb_labels=5)
             self.visualization.scene.camera.zoom(1.5)
             self.visualization.scene.render()    
 
             if self.scatter_activado:
                 
-                # Mapear las coordenadas reales (xs, ys, zs) a índices de píxeles
+                # Map the real coordinates (xs, ys, zs) to pixel indices
                 if self.x is not None and self.y is not None and self.z is not None:
-                    # Calcular los índices de píxeles correspondientes a las coordenadas reales
+                    # Calculate the pixel indices corresponding to the real coordinates
                     x_indices = np.interp(self.xs, (self.x.min(), self.x.max()), (0, self.data.shape[0] - 1))
                     y_indices = np.interp(self.ys, (self.y.min(), self.y.max()), (0, self.data.shape[1] - 1))
                     z_indices = np.interp(self.zs, (self.z.min(), self.z.max()), (0, self.data.shape[2] - 1))
                 else:
-                    # Si no hay coordenadas reales, usar los índices directamente
+                    # If there are no real coordinates, use the indices directly
                     x_indices = self.xs
                     y_indices = self.ys
                     z_indices = self.zs
 
-                # Agregar los puntos a la escena
+                # Add the points to the scene
                 mlab.points3d(
                     x_indices, y_indices, z_indices, 
-                    scale_factor=15.0,  # Ajusta este valor para cambiar el tamaño de los puntos
-                    color=(1, 0, 0),  # Color rojo
-                    figure=self.visualization.scene.mayavi_scene,  # Escena de Mayavi existente 
+                    scale_factor=15.0,  # Adjust this value to change the point size
+                    color=(1, 0, 0),  # Red color
+                    figure=self.visualization.scene.mayavi_scene,  # Existing Mayavi scene 
                 )
-                # Ocultar los ejes de la escena
+                # Hide the scene axes
                 self.scatter_activado = False 
 
         except Exception as e:
@@ -627,7 +627,7 @@ class MyWidget(QWidget):
             if reply == QMessageBox.Yes:
                 file_path, _ = QFileDialog.getOpenFileName(
                     self, "Select file", "", 
-                    "Archivos CSV (*.csv);;Archivos de texto (*.txt);;Todos los archivos (*)"
+                    "CSV files (*.csv);;Text files (*.txt);;All files (*)"
                 )
                 if file_path:
                     import numpy as np
@@ -635,7 +635,7 @@ class MyWidget(QWidget):
                     if arr.shape[1] != 3:
                         QMessageBox.critical(self, "Error", "File must have tree columns (xs, ys, zs).")
                         return
-                    # Asigna directamente a los atributos de la clase
+                    # Assign directly to the class attributes
                     self.xs, self.ys, self.zs = arr[:,0], arr[:,1], arr[:,2]
                 else:
                     return
@@ -647,12 +647,12 @@ class MyWidget(QWidget):
             self.scatter_activado = not self.scatter_activado
             self.plot_volume()
             
-            # Pasar self.lambda_value al constructor de ScatterDialog
+            # Pass self.lambda_value to the ScatterDialog constructor
             self.scatter_dialog = ScatterDialog(
                 self.xs, self.ys, self.zs, 
                 self.x, self.y, self.z, 
                 self.data, 
-                self.lambda_value # <-- Valor lambda añadido
+                self.lambda_value # <-- Added lambda value
             )
             
             self.scatter_dialog.exec_()
@@ -680,7 +680,7 @@ class MyWidget(QWidget):
                 QMessageBox.warning(self, "Error", "No data loaded. Please open a .mat file first.")
                 return
             
-            # El diálogo pedirá el archivo automáticamente al abrirse
+            # The dialog will automatically ask for the file when it opens
             dlg = CDDialog(
                 parent=self,
                 data=self.data,
@@ -694,26 +694,26 @@ class MyWidget(QWidget):
 
 class ProfilePlotMixin:
     """
-    Mixin reutilizable
+    Reusable mixin
         sources: 
-            'data', 'x', 'y', 'z'      -> volumen y ejes en METROS
-            'xs', 'ys', 'zs'           -> coordenadas de scatterers (metros)
-            'lambda_value'             -> escalar
-            'label'                    -> nombre para leyenda/mensajes
-            'color'                    -> color matplotlib (o None = auto)
+            'data', 'x', 'y', 'z'      -> volume and axes in METERS
+            'xs', 'ys', 'zs'           -> scatterer coordinates (meters)
+            'lambda_value'             -> scalar
+            'label'                    -> name for legend/messages
+            'color'                    -> matplotlib color (or None = auto)
 
-        mode_combo: el QComboBox que alterna "Simulation peaks " /
-            "Manual input " (self.ui.combbprincipal en ScatterDialog,
-            self.ui.combbprincipal_2 en CDDialog).
+        mode_combo: the QComboBox that toggles "Simulation peaks " /
+            "Manual input " (self.ui.combbprincipal in ScatterDialog,
+            self.ui.combbprincipal_2 in CDDialog).
     """
 
     # ---------------------------------------------------------------- init
     def _init_profile_plots(self, sources, mode_combo):
         self.sources = sources
         self._mode_combo = mode_combo
-        self.zoom_window = 4.0  # siempre en mm
+        self.zoom_window = 4.0  # always in mm
 
-        # Normalizar lambda_value de cada fuente
+        # Normalize lambda_value for each source
         for src in self.sources:
             lv = src.get('lambda_value', 1.0)
             if isinstance(lv, np.ndarray):
@@ -725,12 +725,12 @@ class ProfilePlotMixin:
         if hasattr(self.ui, 'checkBox'):
             self.ui.checkBox.stateChanged.connect(self._on_normalize_or_units_changed)
         else:
-            print("ADVERTENCIA: 'self.ui.checkBox'.")
+            print("WARNING: 'self.ui.checkBox'.")
 
         if hasattr(self.ui, 'checkunits'):
             self.ui.checkunits.stateChanged.connect(self._on_normalize_or_units_changed)
         else:
-            print("ADVERTENCIA: 'self.ui.checkunits'.")
+            print("WARNING: 'self.ui.checkunits'.")
 
         self.valor_guardado_x = 0.0
         self.valor_guardado_y = 0.0
@@ -756,13 +756,13 @@ class ProfilePlotMixin:
         if hasattr(self.ui, 'InputZoom'):
             self.ui.InputZoom.editingFinished.connect(self._update_zoom_window)
         else:
-            print("ADVERTENCIA: 'self.ui.InputZoom'.")
+            print("WARNING: 'self.ui.InputZoom'.")
 
         self._on_mode_changed(self._mode_combo.currentIndex())
 
     # ------------------------------------------------------------- canvas
     def _setup_matplotlib_canvases(self):
-        """Configurar lienzos de Matplotlib para X, Y, Z con NavigationToolbar"""
+        """Set up Matplotlib canvases for X, Y, Z with NavigationToolbar"""
         self.figure_x = Figure(figsize=(5, 4), dpi=100)
         self.canvas_x = FigureCanvas(self.figure_x)
         self.toolbar_x = NavigationToolbar2QT(self.canvas_x, self.ui.FrameX)
@@ -788,7 +788,7 @@ class ProfilePlotMixin:
         self.figure_y.set_tight_layout(True)
         self.figure_z.set_tight_layout(True)
 
-    # --------------------------------------------------------- unidades
+    # --------------------------------------------------------- units
     def _units_are_lambda(self):
         return hasattr(self.ui, 'checkunits') and self.ui.checkunits.isChecked()
 
@@ -798,7 +798,7 @@ class ProfilePlotMixin:
         return 'X (mm)', 'Y (mm)', 'Z (mm)'
 
     def _get_source_coords(self, src):
-        """Coordenadas x,y,z de una fuente ya escaladas a la unidad actual."""
+        """x,y,z coordinates of a source already scaled to the current unit."""
         if self._units_are_lambda():
             lv = src['lambda_value']
             return (src['x'].flatten() / lv,
@@ -809,12 +809,12 @@ class ProfilePlotMixin:
                 src['z'].flatten() * 1000.0)
 
     def _scale_factor(self, lambda_value):
-        """Factor para convertir mm -> unidad actual (mm o lambda)."""
+        """Factor to convert mm -> current unit (mm or lambda)."""
         if self._units_are_lambda():
             return 1.0 / (lambda_value * 1000.0)
         return 1.0
 
-    # ----------------------------------------------------- puntos simulados
+    # ----------------------------------------------------- simulated points
     def _populate_simulation_points(self):
         self.ui.combbsimu.clear()
 
@@ -824,14 +824,14 @@ class ProfilePlotMixin:
                 if val is not None:
                     src[key] = np.array(val).flatten()
 
-        # Usar como referencia la primera fuente que sí tenga scatterers
+        # Use as reference the first source that actually has scatterers
         ref = next((s for s in self.sources if s.get('xs') is not None), None)
         n_points = len(ref['xs']) if ref is not None else 0
         for index in range(n_points):
             self.ui.combbsimu.addItem(f"Point {index}")
 
     def _ensure_pixel_indices(self, src):
-        """Calcula xs_pixels/ys_pixels/zs_pixels para una fuente (o None si no aplica)."""
+        """Calculates xs_pixels/ys_pixels/zs_pixels for a source (or None if not applicable)."""
         if src.get('xs') is None or src.get('x') is None:
             src['xs_pixels'] = None
             return
@@ -845,7 +845,7 @@ class ProfilePlotMixin:
 
     # ------------------------------------------------------------- inputs
     def _on_input_index_changed(self):
-        """Actualiza el valor cuando el usuario cambia el texto manual (siempre en mm)."""
+        """Updates the value when the user changes the manual text (always in mm)."""
         try:
             self.valor_guardado_x = float(self.ui.InputIndex.text().strip())
         except ValueError:
@@ -879,7 +879,7 @@ class ProfilePlotMixin:
                 self._simu_connection(idx)
 
     def _on_normalize_or_units_changed(self):
-        """Redibuja los gráficos actuales cuando cambia normalización o unidades."""
+        """Redraws the current graphs when normalization or units change."""
         choice = self._mode_combo.currentText()
         if choice == "Simulation peaks ":
             if self._simu_connection is not None:
@@ -892,8 +892,8 @@ class ProfilePlotMixin:
     # ------------------------------------------------------------ FWHM
     def find_fwhm_points(self, profile, axis):
         """
-        Devuelve: extremo izquierdo (mm), extremo derecho (mm), FWHM (mm),
-        nivel half-power (dB). 'axis' debe estar en metros.
+        Returns: left endpoint (mm), right endpoint (mm), FWHM (mm),
+        half-power level (dB). 'axis' must be in meters.
         """
         profile = np.array(profile)
         axis = np.array(axis).flatten()
@@ -957,7 +957,7 @@ class ProfilePlotMixin:
         peaks = peaks[order][:5]
         return peaks, [profile[p] for p in peaks]
 
-    # ------------------------------------------------------- modo (combo)
+    # ------------------------------------------------------- mode (combo)
     def _on_mode_changed(self, index):
         choice = self._mode_combo.currentText()
 
@@ -1032,10 +1032,10 @@ class ProfilePlotMixin:
         elif choice == "Find peaks ":
             pass
 
-    # --------------------------------------------------- perfiles (picos)
+    # --------------------------------------------------- profiles (peaks)
     def _update_profile_plots_from_index(self, point_index):
-        """Modo 'Simulation peaks': dibuja el perfil del punto seleccionado
-        para todas las fuentes que tengan ese índice disponible."""
+        """'Simulation peaks' mode: draws the profile of the selected point
+        for all sources that have that index available."""
         entries = []
         for src in self.sources:
             xp = src.get('xs_pixels')
@@ -1065,10 +1065,10 @@ class ProfilePlotMixin:
             return
         self._draw_profiles(entries, mode='fwhm')
 
-    # -------------------------------------------------- perfiles (manual)
+    # -------------------------------------------------- profiles (manual)
     def _update_manual_graphs(self):
-        """Modo 'Manual input': dibuja el perfil en (x_mm, y_mm, z_mm) para
-        todas las fuentes cuyo rango de coordenadas lo permita."""
+        """'Manual input' mode: draws the profile at (x_mm, y_mm, z_mm) for
+        all sources whose coordinate range allows it."""
         x_mm = self.valor_guardado_x
         y_mm = self.valor_guardado_y
         z_mm = self.valor_guardado_z
@@ -1130,14 +1130,14 @@ class ProfilePlotMixin:
             title_z=f'Z Profile at X={x_mm:.2f}mm, Y={y_mm:.2f}mm',
         )
 
-    # ------------------------------------------------------ dibujo (core)
+    # ------------------------------------------------------ drawing (core)
     def _draw_profiles(self, entries, mode, title_x=None, title_y=None, title_z=None):
         """
-        entries: lista de (src, profile_dict) — profile_dict trae
+        entries: list of (src, profile_dict) — profile_dict carries
                  x_coords/x_profile, y_coords/y_profile, z_coords/z_profile.
-        mode: 'fwhm'  -> pico único + marcadores FWHM (Simulation peaks)
-              'peaks' -> múltiples picos anotados (Manual input)
-        Dibuja todas las fuentes superpuestas en los mismos ejes X/Y/Z.
+        mode: 'fwhm'  -> single peak + FWHM markers (Simulation peaks)
+              'peaks' -> multiple annotated peaks (Manual input)
+        Draws all sources overlaid on the same X/Y/Z axes.
         """
         self.figure_x.clear()
         self.figure_y.clear()
@@ -1250,16 +1250,16 @@ class ProfilePlotMixin:
                     ind = event.ind[0]
                     val_coord = info['coords'][ind]
                     val_amp = info['values'][ind]
-                    QMessageBox.information(self, "Valor del punto",
-                        f"{info['label']} — Perfil {axis_key.upper()}\n"
+                    QMessageBox.information(self, "Point value",
+                        f"{info['label']} — {axis_key.upper()} Profile\n"
                         f"{axis_key.upper()} = {val_coord:.2f} {unit_label}\n"
-                        f"Amplitud = {val_amp:.2f} dB")
+                        f"Amplitude = {val_amp:.2f} dB")
                 return handler
 
             new_cid = canvas.mpl_connect('pick_event', make_handler())
             setattr(self, cid_attr, new_cid)
 
-    # ------------------------------------------------------------- tabla
+    # ------------------------------------------------------------- table
     def _calculate_all_fwhms(self, src):
         fwhm_list = []
         sf = self._scale_factor(src['lambda_value'])
@@ -1287,7 +1287,7 @@ class ProfilePlotMixin:
 
     def _open_table_dialog(self):
         try:
-            # Todas las fuentes que tengan puntos de simulación calculados
+            # All sources that have calculated simulation points
             valid_sources = [s for s in self.sources if s.get('xs_pixels') is not None]
             if not valid_sources:
                 QMessageBox.warning(self, "Error", "No simulation points loaded.")
@@ -1296,12 +1296,12 @@ class ProfilePlotMixin:
             unit_label = r'($\lambda$)' if self._units_are_lambda() else '(mm)'
             multi = len(valid_sources) > 1
 
-            # FWHM por fuente
+            # FWHM per source
             per_source_fwhms = [self._calculate_all_fwhms(s) for s in valid_sources]
             n_points = max(len(f) for f in per_source_fwhms)
 
-            # Encabezados dinámicos, agrupados por EJE en vez de por
-            # archivo: X (archivo 1) - X (archivo 2) - Y (archivo 1) - ...
+            # Dynamic headers, grouped by AXIS instead of by
+            # file: X (file 1) - X (file 2) - Y (file 1) - ...
             axis_names = ("X", "Y", "Z")
             headers = ["Point No."]
             for axis_name in axis_names:
@@ -1309,12 +1309,12 @@ class ProfilePlotMixin:
                     tag = f" — {s.get('label')}" if multi else ""
                     headers.append(f"FWHM {axis_name} {unit_label}{tag}")
 
-            # Filas en el mismo orden por eje. Cada fwhm_list trae tuplas
-            # (punto, fwhm_x, fwhm_y, fwhm_z) -> índices 1, 2, 3 = X, Y, Z
+            # Rows in the same order per axis. Each fwhm_list carries tuples
+            # (point, fwhm_x, fwhm_y, fwhm_z) -> indices 1, 2, 3 = X, Y, Z
             rows = []
             for idx in range(n_points):
                 row = [idx]
-                for axis_pos in (1, 2, 3):  # 1=X, 2=Y, 3=Z dentro de cada tupla
+                for axis_pos in (1, 2, 3):  # 1=X, 2=Y, 3=Z within each tuple
                     for fwhm_list in per_source_fwhms:
                         if idx < len(fwhm_list):
                             row.append(fwhm_list[idx][axis_pos])
@@ -1333,15 +1333,15 @@ class ProfilePlotMixin:
 
 
 class ScatterDialog(ProfilePlotMixin, QDialog):
-    # Añadir lambda_value al constructor
+    # Add lambda_value to the constructor
     def __init__(self, xs, ys, zs, x=None, y=None, z=None, data=None, lambda_value=1.0):
         super().__init__()
 
-        # Configurar la interfaz del diálogo
+        # Set up the dialog UI
         self.ui = Ui_Dialog()
         self.ui.setupUi(self)
 
-        # Mantener atributos "planos" por compatibilidad con el resto del código
+        # Keep "flat" attributes for compatibility with the rest of the code
         self.xs = xs
         self.ys = ys
         self.zs = zs
@@ -1359,8 +1359,8 @@ class ScatterDialog(ProfilePlotMixin, QDialog):
             'label': 'File', 'color': None,
         }]
 
-        # Toda la lógica de perfiles X/Y/Z, FWHM, picos, zoom y tabla
-        # vive en ProfilePlotMixin (ver _init_profile_plots).
+        # All the X/Y/Z profile, FWHM, peaks, zoom, and table logic
+        # lives in ProfilePlotMixin (see _init_profile_plots).
         self._init_profile_plots(sources, self.ui.combbprincipal)
 
 class DialogWindow(QDialog):
@@ -1371,16 +1371,16 @@ class DialogWindow(QDialog):
         self.ui.tableWidget.verticalHeader().setVisible(False)
         self.ui.butexport.clicked.connect(self.save_table)
 
-    # Tamaños originales definidos en ui_fwhm.py, usados como base para
-    # calcular cuánto agrandar la ventana cuando hay más de 4 columnas.
+    # Original sizes defined in ui_fwhm.py, used as a base to
+    # calculate how much to enlarge the window when there are more than 4 columns.
     _BASE_DIALOG_W, _BASE_FRAME_W, _BASE_TABLE_W = 557, 501, 511
     _BASE_COLUMNS = 4
-    _EXTRA_COL_WIDTH = 120  # ancho aproximado reservado por columna extra
+    _EXTRA_COL_WIDTH = 120  # approximate width reserved per extra column
 
     def set_headers(self, headers):
         """
-            1 archivo -> ["Point No.", "FWHM X (mm)", "FWHM Y (mm)", "FWHM Z (mm)"]
-            2 archivos -> ["Point No.",
+            1 file -> ["Point No.", "FWHM X (mm)", "FWHM Y (mm)", "FWHM Z (mm)"]
+            2 files -> ["Point No.",
                            "X (mm) — File 1", "X (mm) — File 2",
                            "Y (mm) — File 1", "Y (mm) — File 2",
                            "Z (mm) — File 1", "Z (mm) — File 2"]
@@ -1392,9 +1392,9 @@ class DialogWindow(QDialog):
 
     def _resize_for_columns(self, n_columns):
         """
-        ui_fwhm.py posiciona frame/tableWidget con geometría fija (sin
-        layouts), así que si hay más de 4 columnas hay que agrandar la
-        ventana manualmente para que no queden cortadas.
+        ui_fwhm.py positions frame/tableWidget with fixed geometry (no
+        layouts), so if there are more than 4 columns the window has to be
+        enlarged manually so nothing gets cut off.
         """
         extra_cols = max(0, n_columns - self._BASE_COLUMNS)
         extra_width = extra_cols * self._EXTRA_COL_WIDTH
@@ -1411,7 +1411,7 @@ class DialogWindow(QDialog):
         table_geo = self.ui.tableWidget.geometry()
         self.ui.tableWidget.setGeometry(table_geo.x(), table_geo.y(), new_table_w, table_geo.height())
 
-        # Centrar el título y el botón de exportar en el nuevo ancho
+        # Center the title and the export button in the new width
         title_geo = self.ui.F_title.geometry()
         self.ui.F_title.move((new_dialog_w - title_geo.width()) // 2, title_geo.y())
 
@@ -1420,7 +1420,7 @@ class DialogWindow(QDialog):
 
     def load_fwhm_table(self, rows):
         """
-        rows: lista de tuplas, cada tupla = (point_no, fwhm_x1, fwhm_x2, ..., fwhm_y1, fwhm_y2, ..., fwhm_z1, fwhm_z2, ...)
+        rows: list of tuples, each tuple = (point_no, fwhm_x1, fwhm_x2, ..., fwhm_y1, fwhm_y2, ..., fwhm_z1, fwhm_z2, ...)
         """
         self.ui.tableWidget.setRowCount(len(rows))
         for row_idx, row_values in enumerate(rows):
@@ -1437,15 +1437,15 @@ class DialogWindow(QDialog):
     def save_table(self):
         path, _ = QFileDialog.getSaveFileName(self, "Save table", "", "CSV Files (*.csv)")
         if path:
-            with open(path, 'w', encoding='utf-8', newline='') as f: # Añadido newline='' para CSV
+            with open(path, 'w', encoding='utf-8', newline='') as f: # Added newline='' for CSV
                 import csv
                 writer = csv.writer(f)
                 
-                # Escribir encabezado
+                # Write header
                 headers = [self.ui.tableWidget.horizontalHeaderItem(i).text() for i in range(self.ui.tableWidget.columnCount())]
                 writer.writerow(headers)
                 
-                # Escribir filas
+                # Write rows
                 for row in range(self.ui.tableWidget.rowCount()):
                     row_data = []
                     for col in range(self.ui.tableWidget.columnCount()):
@@ -1465,9 +1465,9 @@ class PopupDialog(QDialog):
         self.ui.scttlabel.stateChanged.connect(self.show_planes_together)
 
         self.data = data
-        self.x = x # en metros
-        self.y = y # en metros
-        self.z = z # en metros
+        self.x = x # in meters
+        self.y = y # in meters
+        self.z = z # in meters
         self.xs = xs
         self.ys = ys
         self.zs = zs           
@@ -1498,9 +1498,9 @@ class PopupDialog(QDialog):
         elif opcion == "Cross":
             marker_style = 'x'
         else:
-            marker_style = 'o'  # Por defecto
+            marker_style = 'o'  # Default
 
-        # --- Interpolación para plano Y = y_val_mm ---
+        # --- Interpolation for plane Y = y_val_mm ---
         img_y = get_interpolated_plane(
             self.data, self.y.flatten(), y_val_mm, 'y'
         )
@@ -1508,40 +1508,40 @@ class PopupDialog(QDialog):
         z_mm = self.z.flatten() * 1000
 
 
-        # --- Interpolación para plano X = x_val_mm ---
+        # --- Interpolation for plane X = x_val_mm ---
         img_x = get_interpolated_plane(
             self.data, self.x.flatten(), x_val_mm, 'x'
         )
         y_mm = self.y.flatten() * 1000
-        # z_mm ya está definido
+        # z_mm is already defined
 
-        # --- Mostrar solo scatter cerca del plano ---
+        # --- Show only scatter near the plane ---
         xs_mm = self.xs.flatten() * 1000 if self.xs is not None else np.array([])
         ys_mm = self.ys.flatten() * 1000 if self.ys is not None else np.array([])
         zs_mm = self.zs.flatten() * 1000 if self.zs is not None else np.array([])
 
-        tolerance_mm = 0.5  # tolerancia en milímetros (es la resolucion que estamos usando para proyectar el scatter)
+        tolerance_mm = 0.5  # tolerance in millimeters (this is the resolution we're using to project the scatter)
 
-        # Para el plano Y: solo los puntos con ys_mm cerca de y_val_mm
+        # For the Y plane: only points with ys_mm near y_val_mm
         mask_y = np.abs(ys_mm - y_val_mm) < tolerance_mm
         scatter_y_x = xs_mm[mask_y]
         scatter_y_z = zs_mm[mask_y]
         scatter_y_idx = np.where(mask_y)[0]
 
-        # Para el plano X: solo los puntos con xs_mm cerca de x_val_mm
+        # For the X plane: only points with xs_mm near x_val_mm
         mask_x = np.abs(xs_mm - x_val_mm) < tolerance_mm
         scatter_x_y = ys_mm[mask_x]
         scatter_x_z = zs_mm[mask_x]
         scatter_x_idx = np.where(mask_x)[0]
 
-            # Crear una nueva figura y canvas
+            # Create a new figure and canvas
         fig = Figure(figsize=(10, 5))
         canvas = FigureCanvas(fig)
         
-        # Crear los subplots
+        # Create the subplots
         axes = fig.subplots(1, 2)
 
-        # Plano Y = y_val_mm
+        # Plane Y = y_val_mm
         img_plot_0 = axes[0].imshow(img_y.T, cmap='gray', origin='lower', aspect='auto', 
                                     extent=[x_mm[0], x_mm[-1], z_mm[0], z_mm[-1]])
         axes[0].scatter(scatter_y_x, scatter_y_z, c='r', marker= marker_style, label='Scatter')
@@ -1551,7 +1551,7 @@ class PopupDialog(QDialog):
         axes[0].legend()
         axes[0].set_aspect('equal', adjustable='box')
 
-        # Plano X = x_val_mm
+        # Plane X = x_val_mm
         img_plot_1 =axes[1].imshow(img_x.T, cmap='gray', origin='lower', aspect='auto', 
                                    extent=[y_mm[0], y_mm[-1], z_mm[0], z_mm[-1]])
         axes[1].scatter(scatter_x_y, scatter_x_z, c='r', marker= marker_style, label='Scatter')
@@ -1562,14 +1562,14 @@ class PopupDialog(QDialog):
         axes[1].set_aspect('equal', adjustable='box')
 
         if self.ui.secondax.isChecked():
-            # Mostrar los valores normales del eje Y
+            # Show the normal values on the Y axis
             axes[1].set_ylabel('Z (mm)')
             axes[1].tick_params(axis='y', which='both', labelleft=True, left=True)
         else:
-            # No mostrar nada en el eje Y
+            # Show nothing on the Y axis
             axes[1].set_ylabel("")
-            axes[1].set_yticks([])  # Elimina los ticks
-            axes[1].tick_params(axis='y', which='both', labelleft=False, left=False)  # Elimina las líneas y las etiquetas
+            axes[1].set_yticks([])  # Remove ticks
+            axes[1].tick_params(axis='y', which='both', labelleft=False, left=False)  # Remove lines and labels
 
         if self.ui.direction.isChecked():
             axes[0].set_ylim(z_mm[0], z_mm[-1])
@@ -1580,12 +1580,12 @@ class PopupDialog(QDialog):
         
 
         if self.ui.scttlabel.isChecked():
-            # Para el primer scatter
+            # For the first scatter
             for idx, (x, z) in zip(scatter_y_idx, zip(scatter_y_x, scatter_y_z)):
-                axes[0].text(x, z, f"No. {idx}", color='yellow', fontsize=8, ha='center', va='bottom') # Corregido a idx
-            # Para el segundo scatter
+                axes[0].text(x, z, f"No. {idx}", color='yellow', fontsize=8, ha='center', va='bottom') # Fixed to idx
+            # For the second scatter
             for idx, (y, z) in zip(scatter_x_idx, zip(scatter_x_y, scatter_x_z)):
-                axes[1].text(y, z, f"No. {idx}", color='yellow', fontsize=8, ha='center', va='bottom') # Corregido a idx
+                axes[1].text(y, z, f"No. {idx}", color='yellow', fontsize=8, ha='center', va='bottom') # Fixed to idx
 
         if self.ui.colorbar.isChecked():
             fig.colorbar(img_plot_1, ax=axes[1], orientation='vertical', label='Amplitude (dB)')        
@@ -1594,27 +1594,27 @@ class PopupDialog(QDialog):
         fig.tight_layout()
 
 
-        # Limpiar el layout anterior
+        # Clean up the previous layout
         if hasattr(self, 'frame_layout'):
             for i in reversed(range(self.frame_layout.count())): 
                 widget = self.frame_layout.itemAt(i).widget()
                 if widget is not None:
                     widget.setParent(None)
         else:
-            # Crear un layout vertical para el frame si no existe
+            # Create a vertical layout for the frame if it doesn't exist
             self.frame_layout = QVBoxLayout(self.ui.frame)
             self.ui.frame.setLayout(self.frame_layout)
 
-        # Agregar el canvas al frame
+        # Add the canvas to the frame
         self.frame_layout.addWidget(canvas)
 
-        # Opcional: Agregar una barra de herramientas de navegación
+        # Optional: Add a navigation toolbar
         if not hasattr(self, 'toolbar'):
             self.toolbar = NavigationToolbar2QT(canvas, self.ui.frame)
             self.frame_layout.addWidget(self.toolbar)
         else:
-            # Si ya existe, solo la agregamos (esto podría ser un error si se duplica)
-            # Mejor limpiar y añadir
+            # If it already exists, just add it (this could be a bug if duplicated)
+            # Better to clean up and add
             self.frame_layout.addWidget(self.toolbar)
 
 class CDDialog(ProfilePlotMixin, QDialog):
@@ -1623,9 +1623,9 @@ class CDDialog(ProfilePlotMixin, QDialog):
         super().__init__(parent)
         self.ui = Ui_CDDialog()
         self.ui.setupUi(self)
-        self.file_label = file_label  # nombre a mostrar en leyendas/mensajes para el archivo 1
+        self.file_label = file_label  # name to display in legends/messages for file 1
 
-        #Conectar los botones 
+        #Connect the buttons 
         self.ui.graph_scatter_cd.clicked.connect(self.show_planes_together)
         self.ui.boxcd.currentIndexChanged.connect(self.show_planes_together)
         self.ui.colorbar_cd.stateChanged.connect(self.show_planes_together)
@@ -1633,7 +1633,7 @@ class CDDialog(ProfilePlotMixin, QDialog):
         self.ui.direction_cd.stateChanged.connect(self.show_planes_together)
         self.ui.scttlabel_cd.stateChanged.connect(self.show_planes_together)
         
-        # Datos del primer archivo
+        # Data from the first file
         self.data = data
         self.x = x
         self.y = y
@@ -1643,25 +1643,25 @@ class CDDialog(ProfilePlotMixin, QDialog):
         self.zs = zs
         self.lambda_value = lambda_value
         
-        # Datos del segundo archivo (a comparar)
+        # Data from the second file (to compare)
         self.data_2 = None
         self.x_2 = None
         self.y_2 = None
         self.z_2 = None
         self.lambda_value_2 = 1.0
         
-        # Pedir el archivo al abrir
+        # Ask for the file when opening
         if not self.load_comparison_file():
-            self.close()  # Cerrar el diálogo si no se selecciona archivo
+            self.close()  # Close the dialog if no file is selected
             return
         
-        # Ahora sí configurar la UI
+        # Now set up the UI
         self.setup_ui()
 
     def load_comparison_file(self):
         """
-        Abre un diálogo para seleccionar el archivo a comparar
-        Retorna True si se cargó correctamente, False si se canceló
+        Opens a dialog to select the file to compare
+        Returns True if loaded successfully, False if cancelled
         """
         file_path, _ = QFileDialog.getOpenFileName(
             self, 
@@ -1678,7 +1678,7 @@ class CDDialog(ProfilePlotMixin, QDialog):
             mat_data = scipy.io.loadmat(file_path)
             self.data_2 = mat_data.get('data', None)
             
-            # Cargar las coordenadas x, y, z
+            # Load the x, y, z coordinates
             self.x_2 = mat_data.get('x', None)
             self.y_2 = mat_data.get('y', None)
             self.z_2 = mat_data.get('z', None)
@@ -1687,12 +1687,12 @@ class CDDialog(ProfilePlotMixin, QDialog):
             self.ys_2 = mat_data.get('ys', None)
             self.zs_2 = mat_data.get('zs', None)
 
-            # Obtener lambda_value del archivo
+            # Get lambda_value from the file
             self.lambda_value_2 = MyWidget.get_param_value(mat_data, 'lambda')
             if isinstance(self.lambda_value_2, str) or self.lambda_value_2 == 0 or self.lambda_value_2 is None:
                 self.lambda_value_2 = 1.0
             
-            # Convertir a arrays unidimensionales si es necesario
+            # Convert to one-dimensional arrays if necessary
             if self.x_2 is not None and len(self.x_2.shape) > 1:
                 self.x_2 = self.x_2.ravel()
             if self.y_2 is not None and len(self.y_2.shape) > 1:
@@ -1712,31 +1712,31 @@ class CDDialog(ProfilePlotMixin, QDialog):
             return False
 
     def setup_ui(self):
-        """Configura la interfaz después de cargar el archivo"""
-        # Configurar las opciones del comboBox (solo Volume rendering e Isosurface)
+        """Sets up the interface after loading the file"""
+        # Configure the comboBox options (only Volume rendering and Isosurface)
         self.ui.combbprincipal.clear()
         self.ui.combbprincipal.addItem("Volume rendering")
         self.ui.combbprincipal.addItem("Isosurface")
         
-        # Conectar el comboBox a la actualización de visualizaciones
+        # Connect the comboBox to updating the visualizations
         self.ui.combbprincipal.currentIndexChanged.connect(self.update_both_visualizations)
 
-        # Crear la visualización Mayavi para Frame1 (primer archivo - data)
-        # Los frames ya tienen un layout del TabWidget, así que limpiar primero
+        # Create the Mayavi visualization for Frame1 (first file - data)
+        # The frames already have a layout from the TabWidget, so clear it first
         if hasattr(self.ui, 'Frame1'):
             self.setup_3d_visualization_frame1()
         
-        # Crear la visualización Mayavi para Frame2 (segundo archivo - data_2)
+        # Create the Mayavi visualization for Frame2 (second file - data_2)
         if hasattr(self.ui, 'Frame2'):
             self.setup_3d_visualization_frame2()
 
-        # Configurar la pestaña "FW": perfiles X/Y/Z de AMBOS archivos
-        # superpuestos en los mismos gráficos, reutilizando ProfilePlotMixin.
+        # Configure the "FW" tab: X/Y/Z profiles of BOTH files
+        # overlaid on the same graphs, reusing ProfilePlotMixin.
         self._setup_comparison_profiles()
 
     def _setup_comparison_profiles(self):
-        """Inicializa la pestaña de perfiles comparativos (FrameX/Y/Z) con
-        los datos de ambos archivos, usando la lógica de ScatterDialog."""
+        """Initializes the comparative profiles tab (FrameX/Y/Z) with
+        the data from both files, using ScatterDialog's logic."""
         sources = [
             {
                 'data': self.data, 'x': self.x, 'y': self.y, 'z': self.z,
@@ -1751,35 +1751,35 @@ class CDDialog(ProfilePlotMixin, QDialog):
                 'label': 'Secondary File', 'color': 'tab:orange',
             },
         ]
-        # combbprincipal_2 es el selector "Simulation peaks / Manual input"
-        # de la pestaña FW (combbprincipal ya está usado por Volume/Isosurface)
+        # combbprincipal_2 is the "Simulation peaks / Manual input" selector
+        # for the FW tab (combbprincipal is already used by Volume/Isosurface)
         self._init_profile_plots(sources, self.ui.combbprincipal_2)
 
-    # ========== FRAME 1 (Data original) ==========
+    # ========== FRAME 1 (Original data) ==========
     def setup_3d_visualization_frame1(self):
-        """Configura la visualización 3D en Frame1 para el primer archivo"""
+        """Sets up the 3D visualization in Frame1 for the first file"""
         try:
             self.visualization_1 = VisualizationWidget()
             
-            # Limpiar el layout existente del frame si lo tiene
+            # Clear the frame's existing layout if it has one
             if self.ui.Frame1.layout():
                 self.clear_layout(self.ui.Frame1.layout())
             
-            # Crear nuevo layout
+            # Create a new layout
             layout = QVBoxLayout(self.ui.Frame1)
             self.ui.Frame1.setLayout(layout)
             
-            # Agregar el control de visualización al frame
+            # Add the visualization control to the frame
             self.visualization_control_1 = self.visualization_1.edit_traits(parent=self, kind='subpanel').control
             layout.addWidget(self.visualization_control_1)
             
-            # Generar la visualización 3D
+            # Generate the 3D visualization
             self.plot_3d_volume_frame1()
         except Exception as e:
             QMessageBox.critical(self, "Error", f"Error setting up 3D visualization Frame1: {e}")
     
     def plot_3d_volume_frame1(self):
-        """Grafica el volumen 3D del primer archivo en Frame1"""
+        """Plots the 3D volume of the first file in Frame1"""
         if self.data is None:
             return
         
@@ -1788,16 +1788,16 @@ class CDDialog(ProfilePlotMixin, QDialog):
             self.visualization_1.scene.background = (0.2, 0.2, 0.2)
             src = mlab.pipeline.scalar_field(self.data, figure=self.visualization_1.scene.mayavi_scene)
             
-            # Obtener la opción del comboBox
+            # Get the comboBox option
             choice = self.get_visualization_choice()
             
             if choice == "Isosurface":
                 mlab.contour3d(self.data, contours=8, opacity=0.5, 
                               figure=self.visualization_1.scene.mayavi_scene)
-            else:  # "Volume rendering" por defecto
+            else:  # "Volume rendering" by default
                 mlab.pipeline.volume(src, figure=self.visualization_1.scene.mayavi_scene)
             
-            # Determinar las etiquetas y rangos
+            # Determine the labels and ranges
             scale_factor = 1000
             xlabel = 'X (mm)'
             ylabel = 'Y (mm)'
@@ -1824,31 +1824,31 @@ class CDDialog(ProfilePlotMixin, QDialog):
         except Exception as e:
             QMessageBox.critical(self, "Error", f"Error plotting 3D volume Frame1: {e}")
     
-    # ========== FRAME 2 (Data_2 del segundo archivo) ==========
+    # ========== FRAME 2 (Data_2 from the second file) ==========
     def setup_3d_visualization_frame2(self):
-        """Configura la visualización 3D en Frame2 para el segundo archivo"""
+        """Sets up the 3D visualization in Frame2 for the second file"""
         try:
             self.visualization_2 = VisualizationWidget()
             
-            # Limpiar el layout existente del frame si lo tiene
+            # Clear the frame's existing layout if it has one
             if self.ui.Frame2.layout():
                 self.clear_layout(self.ui.Frame2.layout())
             
-            # Crear nuevo layout
+            # Create a new layout
             layout = QVBoxLayout(self.ui.Frame2)
             self.ui.Frame2.setLayout(layout)
             
-            # Agregar el control de visualización al frame
+            # Add the visualization control to the frame
             self.visualization_control_2 = self.visualization_2.edit_traits(parent=self, kind='subpanel').control
             layout.addWidget(self.visualization_control_2)
             
-            # Generar la visualización 3D
+            # Generate the 3D visualization
             self.plot_3d_volume_frame2()
         except Exception as e:
             QMessageBox.critical(self, "Error", f"Error setting up 3D visualization Frame2: {e}")
     
     def plot_3d_volume_frame2(self):
-        """Grafica el volumen 3D del segundo archivo en Frame2"""
+        """Plots the 3D volume of the second file in Frame2"""
         if self.data_2 is None:
             return
         
@@ -1857,16 +1857,16 @@ class CDDialog(ProfilePlotMixin, QDialog):
             self.visualization_2.scene.background = (0.2, 0.2, 0.2)
             src = mlab.pipeline.scalar_field(self.data_2, figure=self.visualization_2.scene.mayavi_scene)
             
-            # Obtener la opción del comboBox
+            # Get the comboBox option
             choice = self.get_visualization_choice()
             
             if choice == "Isosurface":
                 mlab.contour3d(self.data_2, contours=8, opacity=0.5, 
                               figure=self.visualization_2.scene.mayavi_scene)
-            else:  # "Volume rendering" por defecto
+            else:  # "Volume rendering" by default
                 mlab.pipeline.volume(src, figure=self.visualization_2.scene.mayavi_scene)
             
-            # Determinar las etiquetas y rangos
+            # Determine the labels and ranges
             scale_factor = 1000
             xlabel = 'X (mm)'
             ylabel = 'Y (mm)'
@@ -1893,27 +1893,27 @@ class CDDialog(ProfilePlotMixin, QDialog):
         except Exception as e:
             QMessageBox.critical(self, "Error", f"Error plotting 3D volume Frame2: {e}")
     
-    # ========== MÉTODOS AUXILIARES ==========
+    # ========== HELPER METHODS ==========
     def clear_layout(self, layout):
-        """Limpia todos los widgets de un layout"""
+        """Clears all widgets from a layout"""
         while layout.count():
             child = layout.takeAt(0)
             if child.widget():
                 child.widget().deleteLater()
     
     def get_visualization_choice(self):
-        """Obtiene la opción del comboBox"""
+        """Gets the comboBox option"""
         if hasattr(self.ui, 'combbprincipal'):
             return self.ui.combbprincipal.currentText()
         return "Volume rendering"
     
     def update_both_visualizations(self):
-        """Actualiza AMBOS frames cuando cambia el comboBox"""
+        """Updates BOTH frames when the comboBox changes"""
         self.plot_3d_volume_frame1()
         self.plot_3d_volume_frame2()
 
     def show_planes_together(self):
-        # --- Validación de inputs ---
+        # --- Input validation ---
         try:
             x_val_str = self.ui.X_value_cd.text()
             y_val_str = self.ui.Y_Value_cd.text()
@@ -1939,7 +1939,7 @@ class CDDialog(ProfilePlotMixin, QDialog):
         marker_style = 'x' if opcion == "Cross" else 'o'
 
         # ================================================================
-        # ARCHIVO 1 → frame_1
+        # FILE 1 → frame_1
         # ================================================================
         fig1 = Figure(figsize=(10, 5))
         canvas1 = FigureCanvas(fig1)
@@ -1953,19 +1953,19 @@ class CDDialog(ProfilePlotMixin, QDialog):
 
         axes1 = fig1.subplots(1, 2)
 
-        # Scatter points para archivo 1
+        # Scatter points for file 1
         if self.xs is not None and self.ys is not None and self.zs is not None:
             xs_mm = self.xs.flatten() * 1000
             ys_mm = self.ys.flatten() * 1000
             zs_mm = self.zs.flatten() * 1000
 
-            # Plano Y=y_val_mm → scatter en X-Z
-            mask_y1 = np.abs(ys_mm - y_val_mm) < 5  # tolerancia 5 mm
+            # Plane Y=y_val_mm → scatter in X-Z
+            mask_y1 = np.abs(ys_mm - y_val_mm) < 5  # 5 mm tolerance
             scatter_y_x1 = xs_mm[mask_y1]
             scatter_y_z1 = zs_mm[mask_y1]
             scatter_y_idx1 = np.where(mask_y1)[0]
 
-            # Plano X=x_val_mm → scatter en Y-Z
+            # Plane X=x_val_mm → scatter in Y-Z
             mask_x1 = np.abs(xs_mm - x_val_mm) < 5
             scatter_x_y1 = ys_mm[mask_x1]
             scatter_x_z1 = zs_mm[mask_x1]
@@ -1998,7 +1998,7 @@ class CDDialog(ProfilePlotMixin, QDialog):
         fig1.tight_layout()
 
         # ================================================================
-        # ARCHIVO 2 → frame_2
+        # FILE 2 → frame_2
         # ================================================================
         fig2 = Figure(figsize=(10, 5))
         canvas2 = FigureCanvas(fig2)
@@ -2012,7 +2012,7 @@ class CDDialog(ProfilePlotMixin, QDialog):
 
         axes2 = fig2.subplots(1, 2)
 
-        # Scatter points para archivo 2
+        # Scatter points for file 2
         if self.xs_2 is not None and self.ys_2 is not None and self.zs_2 is not None:
             xs2_mm = self.xs_2.flatten() * 1000
             ys2_mm = self.ys_2.flatten() * 1000
@@ -2055,7 +2055,7 @@ class CDDialog(ProfilePlotMixin, QDialog):
         fig2.tight_layout()
 
         # ================================================================
-        # Insertar canvas en los frames correspondientes
+        # Embed canvas in the corresponding frames
         # ================================================================
         self._embed_canvas(canvas1, self.ui.Frame3)
         self._embed_canvas(canvas2, self.ui.Frame4)
@@ -2065,7 +2065,7 @@ class CDDialog(ProfilePlotMixin, QDialog):
                             scatter_y_x, scatter_y_z, scatter_y_idx,
                             scatter_x_y, scatter_x_z, scatter_x_idx,
                             img_plot_colorbar, fig):
-        """Aplica las opciones comunes (secondax, direction, scttlabel, colorbar)."""
+        """Applies the shared options (secondax, direction, scttlabel, colorbar)."""
 
         if self.ui.secondax_cd.isChecked():
             axes[1].set_ylabel('Z (mm)')
@@ -2093,14 +2093,14 @@ class CDDialog(ProfilePlotMixin, QDialog):
 
 
     def _embed_canvas(self, canvas, frame):
-        """Limpia el frame e inserta el canvas de matplotlib."""
+        """Clears the frame and inserts the matplotlib canvas."""
         layout = frame.layout()
 
         if layout is None:
             layout = QVBoxLayout(frame)
             frame.setLayout(layout)
         else:
-            # Limpiar widgets anteriores excepto el toolbar si existe
+            # Clear previous widgets except the toolbar if it exists
             for i in reversed(range(layout.count())):
                 widget = layout.itemAt(i).widget()
                 if widget is not None:
@@ -2108,7 +2108,7 @@ class CDDialog(ProfilePlotMixin, QDialog):
 
         layout.addWidget(canvas)
 
-        # Toolbar de navegación: uno por frame, guardado como atributo único
+        # Navigation toolbar: one per frame, stored as a unique attribute
         toolbar_attr = f'_toolbar_{frame.objectName()}'
         toolbar = NavigationToolbar2QT(canvas, frame)
         setattr(self, toolbar_attr, toolbar)
@@ -2119,6 +2119,3 @@ if __name__ == "__main__":
     window = MyWidget()
     window.show()
     sys.exit(app.exec_())
-
-
-#VERSION FINAL FINAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAL
